@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PN Task — Hệ Điều Hành Quản Trị Công Việc & Học Tập</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/hauflow.css">
+  <!-- FIREBASE REALTIME CLOUD SYNC SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="./js/hauflow.js" defer></script>
+</head>
+<body>
+
+  <!-- APP SHELL -->
+  <div class="hf-app-shell">
+    
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="hf-sidebar" id="hfSidebar">
+      <div class="hf-sidebar-logo">
+        <div class="logo-icon">PN</div>
+        <span class="logo-text">PN Task</span>
+        <button class="sidebar-toggle-btn" onclick="document.getElementById('hfSidebar').classList.toggle('collapsed')" title="Thu gọn Menu">‹</button>
+      </div>
+
+      <nav class="hf-sidebar-nav">
+        <div class="nav-item active" data-route="dashboard"><span>Trang chủ & Giám sát</span></div>
+        <div class="nav-item" data-route="tasks"><span>Công việc Cá nhân</span></div>
+        <div class="nav-item" data-route="projects"><span>Dự án & Phân công</span></div>
+        <div class="nav-item" data-route="calendar"><span>Lịch trình Công việc</span></div>
+        <div class="nav-item" data-route="study"><span>Tài liệu Học tập</span></div>
+        <div class="nav-item" data-route="focus"><span>Chế độ Tập trung</span></div>
+        <div class="nav-item" data-route="habits"><span>Theo dõi Thói quen</span></div>
+        <div class="nav-item" data-route="notes"><span>Ghi chú Chuyên sâu</span></div>
+        <div class="nav-item" data-route="files"><span>Quản lý Tệp tài liệu</span></div>
+        <div class="nav-item" data-route="teams"><span>Trung tâm Phân quyền</span></div>
+        <div class="nav-item" data-route="chat"><span>Trò chuyện Nhóm</span></div>
+        <div class="nav-item" data-route="analytics"><span>Báo cáo Thống kê</span></div>
+
+        <div style="margin-top: auto;"></div>
+        <div class="nav-item" data-route="settings"><span>Cài đặt Hệ thống</span></div>
+      </nav>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="hf-main-content">
+      
+      <!-- TOPBAR -->
+      <header class="hf-topbar">
+        <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Mở danh mục Menu">☰ Menu</button>
+        <div class="topbar-search-btn" onclick="toggleCommandPalette()">
+          <span>Tìm kiếm công việc...</span>
+          <span class="kbd-shortcut">Ctrl+K</span>
+        </div>
+
+        <div class="topbar-actions">
+          <div id="topbarPortalAdminTag" class="portal-tag-admin" style="display:none;">
+            Cổng Quản trị viên
+          </div>
+          <div id="topbarPortalClientTag" class="portal-tag-client" style="display:none;">
+            Cổng Khách hàng
+          </div>
+
+          <div id="adminPendingNoticeBadge" class="admin-pending-badge" style="display:none;" onclick="navigateTo('teams')" title="Xem danh sách tài khoản chờ duyệt">
+            Yêu cầu chờ duyệt
+          </div>
+
+          <span id="cloudSyncStatusBadge" class="hf-badge" style="font-size:0.75rem; padding:4px 10px; cursor:pointer;" onclick="forceManualCloudSync()" title="Nhấp để đồng bộ đám mây ngay">🟢 Đã kết nối Đám mây</span>
+
+          <div class="ws-code-badge" onclick="forceManualCloudSync()" title="Nhấp để đồng bộ dữ liệu ngay">
+            Đồng bộ Đám mây
+          </div>
+
+          <div class="user-switcher-btn" onclick="document.getElementById('userProfileDropdownModal').classList.toggle('active')">
+            <div class="avatar-badge" id="currentUserAvatarDisplay">PN</div>
+            <span id="currentUserNameDisplay">PN (Quản trị viên)</span>
+          </div>
+
+          <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">Tạo Công việc Mới</button>
+          <button class="hf-btn hf-btn-secondary" onclick="logoutPnTaskUser()" title="Đăng xuất khỏi tài khoản">Đăng xuất</button>
+          <button class="hf-btn-icon" onclick="toggleDarkMode()" title="Chuyển chế độ sáng tối">Giao diện</button>
+        </div>
+      </header>
+
+      <!-- ROUTE VIEW PANELS -->
+      <div class="hf-view-container">
+        
+        <!-- View 1: Dashboard & Admin Monitor -->
+        <div id="view_dashboard" class="hf-view-panel">
+          <div style="margin-bottom: 20px;">
+            <h1>Hệ thống Quản trị PN Task</h1>
+            <p style="color: var(--text-secondary);">Quản trị công việc doanh nghiệp và theo dõi tiến độ thời gian thực.</p>
+          </div>
+
+          <!-- STATS GRID -->
+          <div class="stats-grid">
+            <div class="hf-card stat-card">
+              <div class="stat-icon-wrapper">CV</div>
+              <div>
+                <div class="stat-val" id="dashCntTasks">12</div>
+                <div class="stat-label">Tổng số Công việc</div>
+              </div>
+            </div>
+            <div class="hf-card stat-card">
+              <div class="stat-icon-wrapper" style="color: var(--success); background: var(--success-bg);">HT</div>
+              <div>
+                <div class="stat-val" id="dashCntDone">7</div>
+                <div class="stat-label">Công việc Hoàn thành</div>
+              </div>
+            </div>
+            <div class="hf-card stat-card">
+              <div class="stat-icon-wrapper" style="color: var(--danger); background: var(--danger-bg);">KC</div>
+              <div>
+                <div class="stat-val" id="dashCntOverdue">3</div>
+                <div class="stat-label">Công việc Khẩn cấp</div>
+              </div>
+            </div>
+            <div class="hf-card stat-card">
+              <div class="stat-icon-wrapper">TG</div>
+              <div>
+                <div class="stat-val" id="dashFocusTimeDisplay">3 giờ 00 phút</div>
+                <div class="stat-label">Thời gian Tập trung</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px;">
+            <div class="hf-card">
+              <h3 style="margin-bottom: 14px;">Công việc Ưu tiên Cá nhân</h3>
+              <div id="dashTodayPriorities"></div>
+            </div>
+
+            <div class="hf-card" id="dashMonitorSectionCard">
+              <h3 style="margin-bottom: 12px;">Theo dõi Tiến độ Thành viên (Quản trị viên)</h3>
+              <p style="font-size:0.775rem; color:var(--text-secondary); margin-bottom:14px;">Tiến độ công việc của từng thành viên cập nhật trực tiếp:</p>
+              <div id="adminMemberProgressMonitor"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 2: My Tasks -->
+        <div id="view_tasks" class="hf-view-panel" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <h1>Bảng Công việc Cá nhân</h1>
+              <p style="color: var(--text-secondary);">Quản lý danh sách công việc được phân công.</p>
+            </div>
+            <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">+ Thêm Công việc Mới</button>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 6px;">
+              <button class="hf-btn hf-btn-secondary task-tab-btn active" id="taskTab_all" onclick="filterTasksTab('all')">Tất cả</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_today" onclick="filterTasksTab('today')">Hôm nay</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_upcoming" onclick="filterTasksTab('upcoming')">Sắp tới</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_overdue" onclick="filterTasksTab('overdue')">Quá hạn</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_completed" onclick="filterTasksTab('completed')">Đã xong</button>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="taskSearchInput" class="form-input" placeholder="Tìm công việc..." style="width: 180px;" onkeyup="renderTasks()">
+              <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('tasksListContainer').style.display='block'; document.getElementById('kanbanBoardView').style.display='none';">Giao diện Bảng</button>
+              <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('tasksListContainer').style.display='none'; document.getElementById('kanbanBoardView').style.display='grid';">Giao diện Cột</button>
+            </div>
+          </div>
+
+          <div id="tasksListContainer"></div>
+
+          <div id="kanbanBoardView" class="kanban-grid" style="display: none;">
+            <div class="kanban-column"><div class="kanban-column-header"><span>Cần làm</span></div><div class="kanban-cards-area" id="col_TODO"></div></div>
+            <div class="kanban-column"><div class="kanban-column-header"><span>Đang thực hiện</span></div><div class="kanban-cards-area" id="col_IN_PROGRESS"></div></div>
+            <div class="kanban-column"><div class="kanban-column-header"><span>Đang kiểm duyệt</span></div><div class="kanban-cards-area" id="col_IN_REVIEW"></div></div>
+            <div class="kanban-column"><div class="kanban-column-header"><span>Đã hoàn thành</span></div><div class="kanban-cards-area" id="col_DONE"></div></div>
+          </div>
+        </div>
+
+        <!-- View 3: Projects & Task Assignments -->
+        <div id="view_projects" class="hf-view-panel" style="display: none;">
+          <div style="margin-bottom: 16px;">
+            <h1>Dự án & Phân công Công việc</h1>
+            <p style="color: var(--text-secondary);">Chi tiết việc cần làm cá nhân và các nhiệm vụ nhóm do Quản trị viên giao.</p>
+          </div>
+          <div id="projectsGridContainer"></div>
+        </div>
+
+        <!-- View 4: Interactive Calendar Grid -->
+        <div id="view_calendar" class="hf-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+              <h1>Lịch trình Công việc & Hạn nộp (Tháng 8/2026)</h1>
+              <p style="color: var(--text-secondary);">Lịch làm việc và hạn nộp công việc cá nhân.</p>
+            </div>
+            <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">+ Thêm Công việc theo Ngày</button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px; margin-bottom:8px; text-align:center; font-weight:700; font-size:0.8rem; color:var(--text-secondary);">
+            <div>Thứ 2</div><div>Thứ 3</div><div>Thứ 4</div><div>Thứ 5</div><div>Thứ 6</div><div>Thứ 7</div><div>Chủ nhật</div>
+          </div>
+          <div id="calendarGridContainer" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:8px;"></div>
+        </div>
+
+        <!-- View 5: SELF-LEARNING DOCUMENTS OS -->
+        <div id="view_study" class="hf-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+              <h1>Tài liệu Học tập Tự học</h1>
+              <p style="color:var(--text-secondary);">Lưu trữ tài liệu học tập tự tạo, sách tham khảo và ghi chú nghiên cứu cá nhân.</p>
+            </div>
+            <button class="hf-btn hf-btn-primary" onclick="openAddLearningDocModal()">+ Thêm Tài liệu mới</button>
+          </div>
+          <div id="studyAssignmentsList" style="margin-top:16px;"></div>
+        </div>
+
+        <!-- View 6: Focus Pomodoro -->
+        <div id="view_focus" class="hf-view-panel" style="display: none;">
+          <div class="focus-timer-container hf-card" style="text-align:center; max-width:480px; margin:0 auto; padding:40px 20px;">
+            <h1>Chế độ Tập trung Timer</h1>
+            <p style="color:var(--text-secondary); margin-top:6px;">Tập trung làm việc 25 phút không xao nhãng</p>
+
+            <div style="font-size:3.6rem; font-weight:700; color:var(--primary); font-family:var(--font-heading); margin:24px 0;" id="pomodoroTimerDisplay">25:00</div>
+
+            <div style="display:flex; justify-content:center; gap:12px;">
+              <button class="hf-btn hf-btn-primary" id="pomodoroToggleBtn" onclick="togglePomodoroTimer()" style="padding:12px 28px; font-size:1rem;">Bắt đầu Tập trung</button>
+              <button class="hf-btn hf-btn-secondary" onclick="resetPomodoroTimer()" style="padding:12px 20px;">Đặt lại</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 7: Habits -->
+        <div id="view_habits" class="hf-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h1>Theo dõi Thói quen (7 Ngày)</h1>
+            <button class="hf-btn hf-btn-primary" onclick="showToast('Thêm thói quen mới.')">+ Thêm Thói quen</button>
+          </div>
+          <div id="habitsListContainer"></div>
+        </div>
+
+        <!-- View 8: Rich Text Notes Editor -->
+        <div id="view_notes" class="hf-view-panel" style="display: none;">
+          <div style="display:grid; grid-template-columns: 260px 1fr; gap:16px; height:calc(100vh - 180px);">
+            <!-- Sidebar Notes List -->
+            <div class="hf-card" style="display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3>Ghi chú</h3>
+                <button class="hf-btn hf-btn-primary" style="padding:4px 8px; font-size:0.75rem;" onclick="createNewNote()">+ Tạo Ghi chú</button>
+              </div>
+              <div id="notesListSidebar" style="flex:1; overflow-y:auto;"></div>
+            </div>
+
+            <!-- Note Editor Panel -->
+            <div class="hf-card" style="display:flex; flex-direction:column;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+                <input type="text" id="noteEditorTitle" class="form-input" style="font-size:1.2rem; font-weight:700; border:none; background:transparent;" placeholder="Tiêu đề ghi chú..." oninput="saveActiveNoteOnInput()">
+                <div style="display:flex; gap:8px;">
+                  <button class="hf-btn hf-btn-primary" onclick="saveActiveNote()">Lưu Ghi chú</button>
+                  <button class="hf-btn hf-btn-secondary" style="color:var(--danger);" onclick="deleteActiveNote()">Xóa</button>
+                </div>
+              </div>
+              <textarea id="noteEditorContent" class="form-textarea" style="flex:1; border:none; resize:none; font-size:0.95rem; line-height:1.6;" placeholder="Nhập nội dung ghi chú ở đây..." oninput="saveActiveNoteOnInput()"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 9: Files Management -->
+        <div id="view_files" class="hf-view-panel" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+              <h1>Quản lý Tệp tin & Tài liệu</h1>
+              <p style="color:var(--text-secondary);">Tải tệp từ máy tính cá nhân (PDF, DOCX, FIG, PNG...) và lưu trữ an toàn.</p>
+            </div>
+            <button class="hf-btn hf-btn-primary" onclick="openUploadFileModal()">Tải Tệp lên Hệ thống</button>
+          </div>
+          <div id="filesGridContainer" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:16px;"></div>
+        </div>
+
+        <!-- View 10: Admin PN & RBAC & APPROVAL -->
+        <div id="view_teams" class="hf-view-panel" style="display: none;">
+          <h1 style="margin-bottom: 16px;">Trung tâm Phê duyệt & Phân quyền Quản trị viên</h1>
+          <div id="teamsListContainer"></div>
+        </div>
+
+        <!-- View 11: Realtime Team Chat -->
+        <div id="view_chat" class="hf-view-panel" style="display: none;">
+          <div class="hf-card" style="display:flex; flex-direction:column; height:calc(100vh - 180px);">
+            <div style="border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h3>Trò chuyện Nhóm Thời gian thực</h3>
+                <p style="font-size:0.775rem; color:var(--text-secondary); margin-top:2px;">Trao đổi công việc và đính kèm tệp giữa các tài khoản thành viên</p>
+              </div>
+              <span class="ws-code-badge">Đã kết nối</span>
+            </div>
+            
+            <div id="chatMessagesContainer" style="flex:1; overflow-y:auto; padding-right:8px; min-height: 250px;"></div>
+            
+            <div style="display:flex; gap:8px; margin-top:12px; border-top:1px solid var(--border); padding-top:12px; align-items:center;">
+              <input type="file" id="chatRealFileInput" style="display:none;" onchange="handleChatRealFileUpload(this)">
+              <button class="hf-btn hf-btn-secondary" onclick="triggerChatRealFileInput()" title="Đính kèm file">Đính tệp</button>
+              <input type="text" id="chatMessageInput" class="form-input" placeholder="Nhập tin nhắn chat nhóm (bấm Enter để gửi)..." style="flex:1;" onkeydown="if(event.key==='Enter') sendChatMessage()">
+              <button class="hf-btn hf-btn-primary" onclick="sendChatMessage()" style="padding: 10px 20px;">Gửi</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- View 12: Analytics -->
+        <div id="view_analytics" class="hf-view-panel" style="display: none;">
+          <h1 style="margin-bottom: 16px;">Báo cáo Thống kê Tiến độ</h1>
+          <div class="stats-grid">
+            <div class="hf-card stat-card"><div><div class="stat-val" id="analyticsCompletionRate">87%</div><div class="stat-label">Tỷ lệ Hoàn thành</div></div></div>
+            <div class="hf-card stat-card"><div><div class="stat-val" id="analyticsDoneCount">12</div><div class="stat-label">Công việc Đã hoàn thành</div></div></div>
+          </div>
+        </div>
+
+        <!-- View 13: Settings & Data Management -->
+        <div id="view_settings" class="hf-view-panel" style="display: none;">
+          <h1 style="margin-bottom: 16px;">Cài đặt Hệ thống & Hồ sơ Người dùng</h1>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;" class="dashboard-two-col">
+            
+            <!-- COLUMN 1: USER PERSONAL PROFILE -->
+            <div class="hf-card">
+              <h3 style="margin-bottom: 14px;">Hồ sơ Cá nhân người dùng</h3>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div class="avatar-badge" id="settingsUserAvatarDisplay" style="width:44px; height:44px; font-size:1.2rem;">PN</div>
+                <div>
+                  <div style="font-weight:700; font-size:1rem;" id="settingsUserNameDisplay">PN</div>
+                  <div style="font-size:0.8rem; color:var(--text-secondary);" id="settingsUserRoleDisplay">Quản trị viên (Giám đốc)</div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Họ và Tên cá nhân (*)</label>
+                <input type="text" id="settingsFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tên đăng nhập (*)</label>
+                <input type="text" id="settingsUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
+                <input type="text" id="settingsPasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email liên hệ</label>
+                <input type="email" id="settingsEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
+              </div>
+
+              <button class="hf-btn hf-btn-primary" onclick="submitSaveSettingsProfile()" style="width: 100%; margin-top: 10px;">Lưu Hồ sơ Cá nhân</button>
+            </div>
+
+            <!-- COLUMN 2: SYSTEM CONFIG & BACKUP -->
+            <div class="hf-card">
+              <h3 style="margin-bottom: 14px;">Cấu hình & Sao lưu Hệ thống</h3>
+              
+              <div class="form-group">
+                <label class="form-label">Chế độ Giao diện Sáng / Tối</label>
+                <button class="hf-btn hf-btn-secondary" onclick="toggleDarkMode()" style="width:100%;">Bật / Tắt Chế độ Tối (Dark Mode)</button>
+              </div>
+
+              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+                <label class="form-label">Xuất dữ liệu Sao lưu hệ thống (Tệp JSON)</label>
+                <button class="hf-btn hf-btn-primary" onclick="exportSystemDataJSON()" style="width:100%;">Xuất Dữ liệu Hệ thống</button>
+              </div>
+
+              <div class="form-group" style="margin-top:14px;">
+                <label class="form-label">Phục hồi dữ liệu từ tệp sao lưu (Import JSON)</label>
+                <input type="file" id="importJsonFileInput" accept=".json" style="display:none;" onchange="importSystemDataJSON(event)">
+                <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('importJsonFileInput').click()" style="width:100%;">Phục hồi Dữ liệu</button>
+              </div>
+
+              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+                <label class="form-label" style="color:var(--danger);">Khôi phục Dữ liệu Mặc định Ban đầu</label>
+                <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:var(--danger); width:100%;" onclick="resetWorkspaceData()">Khôi phục Mặc định</button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
+            <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
+              <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Firebase Realtime Cloud Sync)</h3>
+              <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
+                Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase.
+              </p>
+              
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
+                <div>
+                  <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
+                </div>
+                <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Đám mây Ngay</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- LOGIN & REGISTER GATEWAY OVERLAY SCREEN -->
+  <div class="login-gateway-overlay" id="pnTaskLoginGateway" style="display: none;">
+    <div class="login-gateway-card">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div class="logo-icon" style="width: 48px; height: 48px; font-size: 1.4rem; margin: 0 auto 12px auto;">PN</div>
+        <h2>Cổng Đăng Nhập Doanh Nghiệp</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Hệ thống Quản lý Công việc & Dự án Doanh nghiệp PN Task</p>
+      </div>
+
+      <!-- DUAL TAB SWITCHER -->
+      <div class="login-tab-switcher">
+        <div class="login-tab-btn active" id="tabBtnLogin" onclick="switchLoginGatewayTab('login')">Đăng nhập</div>
+        <div class="login-tab-btn" id="tabBtnRegister" onclick="switchLoginGatewayTab('register')">Đăng ký Tài khoản</div>
+      </div>
+
+      <!-- FORM 1: LOGIN -->
+      <div id="loginFormContainer">
+        <div class="form-group">
+          <label class="form-label">Mã Quản trị viên (Admin Code)</label>
+          <input type="password" id="loginAdminCodeInput" class="form-input" placeholder="Nhập mã QTV..." value="" autocomplete="off" onkeydown="if(event.key==='Enter') loginPnTaskUser(document.getElementById('loginAdminCodeInput').value)">
+        </div>
+
+        <button class="hf-btn hf-btn-primary" onclick="loginPnTaskUser(document.getElementById('loginAdminCodeInput').value)" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem;">Đăng nhập Cổng Quản trị</button>
+      </div>
+
+      <!-- FORM 2: REGISTRATION -->
+      <div id="registerFormContainer" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Họ và Tên thành viên / Khách hàng</label>
+          <input type="text" id="regFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A" value="">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tên đăng nhập mong muốn</label>
+          <input type="text" id="regUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana" value="">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mật khẩu khởi tạo</label>
+          <input type="password" id="regPasswordInput" class="form-input" placeholder="Tạo mật khẩu cá nhân..." value="">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Email liên hệ</label>
+          <input type="email" id="regEmailInput" class="form-input" placeholder="Ví dụ: nva@gmail.com" value="">
+        </div>
+
+        <button class="hf-btn hf-btn-primary" onclick="registerGuestAccount(document.getElementById('regFullNameInput').value, document.getElementById('regUsernameInput').value, document.getElementById('regPasswordInput').value, document.getElementById('regEmailInput').value)" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem; background: var(--success); border-color: var(--success);">Gửi Yêu cầu Đăng ký</button>
+
+        <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:10px;">
+          Yêu cầu sẽ được gửi tới Quản trị viên để phê duyệt cấp quyền sử dụng hệ thống.
+        </p>
+      </div>
+
+      <!-- DEDICATED DIRECT PORTAL LINKS -->
+      <div class="portal-link-box">
+        <div>Đường dẫn dành riêng cho Cổng Đăng nhập:</div>
+        <div style="margin-top:4px; display:flex; justify-content:center; gap:12px;">
+          <span class="portal-link-btn" onclick="window.location.search='?portal=admin'">Cổng Quản trị viên</span>
+          <span style="color:var(--border);">|</span>
+          <span class="portal-link-btn" onclick="window.location.search='?portal=client'">Cổng Khách hàng</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ADD STUDY DOCUMENT MODAL -->
+  <div class="hf-modal-overlay" id="addStudyDocModalOverlay">
+    <div class="hf-modal-box" style="max-width:500px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3>Thêm Tài liệu Học tập Mới</h3>
+        <button onclick="closeAddLearningDocModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label">Tiêu đề tài liệu / Khóa học (*)</label>
+        <input type="text" id="studyDocTitleInput" class="form-input" placeholder="Ví dụ: Tài liệu Khóa học Modern Web OS">
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Loại tài liệu</label>
+          <select id="studyDocCategoryInput" class="form-select">
+            <option value="Khóa học & Bài giảng">Khóa học & Bài giảng</option>
+            <option value="Ebook & PDF">Ebook & PDF</option>
+            <option value="Ghi chú Tự học">Ghi chú Tự học</option>
+            <option value="Nghiên cứu & Tham khảo">Nghiên cứu & Tham khảo</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chủ đề / Lĩnh vực</label>
+          <input type="text" id="studyDocTopicInput" class="form-input" placeholder="Công nghệ Thông tin" value="Công nghệ Thông tin">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tải tệp tài liệu thật từ máy tính (PDF, Word, Ebook, ZIP...)</label>
+        <input type="file" id="studyDocFileInput" class="form-input">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Đường dẫn liên kết (URL Website/Drive)</label>
+        <input type="text" id="studyDocLinkInput" class="form-input" placeholder="https://...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ghi chú nội dung tóm tắt</label>
+        <textarea id="studyDocNoteInput" class="form-textarea" placeholder="Nhập ghi chú tóm tắt nội dung tài liệu..." style="height:60px;"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeAddLearningDocModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitAddLearningDoc()">Lưu Tài liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER SWITCHER DROPDOWN MODAL -->
+  <div class="hf-modal-overlay" id="userProfileDropdownModal" onclick="this.classList.remove('active')">
+    <div class="hf-modal-box" style="max-width: 340px; padding: 20px;" onclick="event.stopPropagation()">
+      <div style="text-align:center; padding-bottom: 12px; margin-bottom: 12px; border-bottom:1px solid var(--border);">
+        <div class="avatar-badge" id="dropdownCurrentAvatar" style="width:42px; height:42px; font-size:1.2rem; margin: 0 auto 8px auto;">PN</div>
+        <div style="font-weight:700; font-size:1rem;" id="dropdownCurrentName">PN</div>
+        <div style="font-size:0.8rem; color:var(--text-secondary);" id="dropdownCurrentRole">Quản trị viên (Giám đốc)</div>
+        <button class="hf-btn hf-btn-primary" onclick="document.getElementById('userProfileDropdownModal').classList.remove('active'); openMyProfileModal();" style="margin-top:10px; width:100%; font-size:0.8rem; padding:6px 12px;">Hồ sơ Cá nhân & Đổi Mật khẩu</button>
+      </div>
+      <h3 style="margin-bottom: 10px; font-size:0.95rem;">Chuyển đổi Tài khoản Nhanh</h3>
+      <div style="display: flex; flex-direction: column; gap: 8px;" id="fastSwitchUserListContainer"></div>
+    </div>
+  </div>
+
+  <!-- TASK DETAIL DRAWER WITH REAL FILE UPLOADING -->
+  <div class="hf-drawer-overlay" id="taskDrawerOverlay" onclick="closeTaskDetailDrawer()"></div>
+  <div class="hf-drawer" id="taskDrawer">
+    <div class="drawer-header">
+      <h3>Chi tiết công việc</h3>
+      <button onclick="closeTaskDetailDrawer()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group"><label class="form-label">Tên công việc</label><input type="text" id="drawerTaskTitle" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Trạng thái</label><select id="drawerTaskStatus" class="form-select"><option value="TODO">Cần làm</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="IN_REVIEW">Đang kiểm duyệt</option><option value="DONE">Đã hoàn thành</option></select></div>
+      <div class="form-group"><label class="form-label">Ưu tiên</label><select id="drawerTaskPriority" class="form-select"><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option></select></div>
+      <div class="form-group"><label class="form-label">Hạn nộp</label><input type="text" id="drawerTaskDue" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Mô tả</label><textarea id="drawerTaskDesc" class="form-textarea" style="height:70px;"></textarea></div>
+
+      <div class="form-group" style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label class="form-label" style="margin:0;">Tệp tài liệu đính kèm</label>
+          <input type="file" id="drawerRealFileInput" style="display:none;" onchange="handleDrawerRealFileUpload(this)">
+          <button class="hf-btn hf-btn-secondary" style="padding:2px 8px; font-size:0.7rem;" onclick="triggerDrawerRealFileInput()">+ Đính kèm Tệp</button>
+        </div>
+        <div id="drawerAttachmentsList"></div>
+      </div>
+    </div>
+    <div style="padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between;">
+      <button class="hf-btn hf-btn-secondary" id="drawerDeleteBtn" onclick="deleteTaskFromDrawer()" style="color: var(--danger);">Xóa Công việc</button>
+      <button class="hf-btn hf-btn-primary" onclick="saveDrawerTaskChanges()">Lưu & Đồng bộ</button>
+    </div>
+  </div>
+
+  <!-- FULL-FEATURED CREATE TASK MODAL -->
+  <div class="hf-modal-overlay" id="quickCreateModalOverlay">
+    <div class="hf-modal-box" style="max-width:540px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3>Tạo Công việc Mới</h3>
+        <button onclick="closeQuickCreateModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tên công việc (*)</label>
+        <input type="text" id="quickTaskTitleInput" class="form-input" placeholder="Ví dụ: Thiết kế Mẫu giao diện Kỹ thuật">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mô tả nội dung chi tiết</label>
+        <textarea id="quickTaskDescInput" class="form-textarea" placeholder="Nhập yêu cầu, hướng dẫn triển khai..." style="height:60px;"></textarea>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Thành viên phụ trách</label>
+          <select id="quickTaskAssigneeSelect" class="form-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Dự án / Phân nhóm</label>
+          <input type="text" id="quickTaskProjectInput" class="form-input" placeholder="Hệ thống PN Task" value="Hệ thống PN Task">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Độ ưu tiên</label>
+          <select id="quickTaskPrioritySelect" class="form-select">
+            <option value="MEDIUM">Trung bình</option>
+            <option value="HIGH">Cao</option>
+            <option value="URGENT">Khẩn cấp</option>
+            <option value="LOW">Thấp</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Trạng thái</label>
+          <select id="quickTaskStatusSelect" class="form-select">
+            <option value="TODO">Cần làm</option>
+            <option value="IN_PROGRESS">Đang thực hiện</option>
+            <option value="IN_REVIEW">Đang kiểm duyệt</option>
+            <option value="DONE">Đã hoàn thành</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Hạn nộp</label>
+          <input type="text" id="quickTaskDueInput" class="form-input" placeholder="14/08/2026" value="14/08/2026">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Đính kèm tệp tài liệu từ máy tính</label>
+        <input type="file" id="quickTaskRealFileInput" class="form-input">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeQuickCreateModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="handleQuickCreateSubmit()">Tạo & Phân công</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REAL FILE UPLOAD MODAL -->
+  <div class="hf-modal-overlay" id="uploadFileModalOverlay">
+    <div class="hf-modal-box" style="max-width:450px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3>Tải Tệp Tài Liệu Từ Máy Tính</h3>
+        <button onclick="closeUploadFileModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Chọn tệp từ máy tính (*)</label>
+        <input type="file" id="realFileInputElement" class="form-input" onchange="handleRealFileUpload(this)">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Phân loại danh mục tệp</label>
+        <select id="fileUploadCategoryInput" class="form-select">
+          <option value="Dự án">Dự án</option>
+          <option value="Thiết kế">Thiết kế</option>
+          <option value="Học tập">Học tập</option>
+          <option value="Báo cáo">Báo cáo</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeUploadFileModal()">Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT USER ACCOUNT MODAL -->
+  <div class="hf-modal-overlay" id="editUserModalOverlay">
+    <div class="hf-modal-box" style="max-width:480px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3>Chỉnh sửa Thông tin Tài khoản</h3>
+        <button onclick="closeEditUserModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+
+      <input type="hidden" id="editUserIdHidden">
+
+      <div class="form-group">
+        <label class="form-label">Họ và Tên thành viên (*)</label>
+        <input type="text" id="editFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tên đăng nhập (Username) (*)</label>
+        <input type="text" id="editUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mật khẩu / Mã đăng nhập QTV (*)</label>
+        <input type="text" id="editPasswordInput" class="form-input" placeholder="Nhập mật khẩu / mã QTV mới...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Vai trò chức danh</label>
+        <select id="editRoleSelect" class="form-select">
+          <option value="Quản trị viên (Giám đốc)">Quản trị viên (Giám đốc)</option>
+          <option value="Quản lý Dự án">Quản lý Dự án</option>
+          <option value="Thành viên Đội ngũ">Thành viên Đội ngũ</option>
+          <option value="Người dùng (Thành viên cá nhân)">Người dùng (Thành viên cá nhân)</option>
+          <option value="Khách hàng (Người xem)">Khách hàng (Người xem)</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeEditUserModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitSaveEditUser()">Lưu Thay đổi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MY PERSONAL PROFILE MODAL -->
+  <div class="hf-modal-overlay" id="myProfileModalOverlay">
+    <div class="hf-modal-box" style="max-width:480px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3>Hồ sơ Cá nhân & Cài đặt Tài khoản</h3>
+        <button onclick="closeMyProfileModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+
+      <div style="text-align:center; margin-bottom: 16px;">
+        <div class="avatar-badge" id="myProfileAvatarDisplay" style="width:48px; height:48px; font-size:1.3rem; margin: 0 auto 6px auto;">PN</div>
+        <div style="font-weight:700; font-size:0.95rem;" id="myProfileRoleDisplay">Quản trị viên (Giám đốc)</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Họ và Tên cá nhân (*)</label>
+        <input type="text" id="myProfileFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tên đăng nhập (Username) (*)</label>
+        <input type="text" id="myProfileUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
+        <input type="text" id="myProfilePasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email liên hệ</label>
+        <input type="email" id="myProfileEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeMyProfileModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitSaveMyProfile()">Cập nhật Hồ sơ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMAND PALETTE -->
+  <div class="command-palette-overlay" id="commandPaletteOverlay" onclick="closeCommandPalette()">
+    <div class="command-palette-box" onclick="event.stopPropagation()">
+      <div class="command-input-wrapper">
+        <input type="text" class="form-input" placeholder="Tìm kiếm công việc hoặc gõ lệnh..." onkeyup="if(event.key==='Enter') closeCommandPalette()">
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+</body>
+</html>
