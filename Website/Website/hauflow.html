@@ -520,6 +520,8 @@
     </div>
     <div class="drawer-body">
       <div class="form-group"><label class="form-label">Tên công việc</label><input type="text" id="drawerTaskTitle" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Người giao công việc (Admin / Manager)</label><input type="text" id="drawerTaskCreator" class="form-input" readonly style="background:var(--bg-secondary); color:var(--text-secondary);"></div>
+      <div class="form-group"><label class="form-label">Phân công người thực hiện</label><select id="drawerTaskAssignee" class="form-select"></select></div>
       <div class="form-group"><label class="form-label">Trạng thái</label><select id="drawerTaskStatus" class="form-select"><option value="TODO">Cần làm</option><option value="IN_PROGRESS">Đang thực hiện</option><option value="IN_REVIEW">Đang kiểm duyệt</option><option value="DONE">Đã hoàn thành</option></select></div>
       <div class="form-group"><label class="form-label">Ưu tiên</label><select id="drawerTaskPriority" class="form-select"><option value="LOW">Thấp</option><option value="MEDIUM">Trung bình</option><option value="HIGH">Cao</option><option value="URGENT">Khẩn cấp</option></select></div>
       <div class="form-group"><label class="form-label">Hạn nộp</label><input type="text" id="drawerTaskDue" class="form-input"></div>

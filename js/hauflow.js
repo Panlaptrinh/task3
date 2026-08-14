@@ -566,20 +566,36 @@ function setLoginPortalMode(mode) {
   const btnAdmin = document.getElementById('btnPortalAdmin');
   const clientForm = document.getElementById('clientLoginFormContainer');
   const adminForm = document.getElementById('adminLoginFormContainer');
+  const registerForm = document.getElementById('registerFormContainer');
+  const tabReg = document.getElementById('tabBtnRegister');
+  const tabLogin = document.getElementById('tabBtnLogin');
   const title = document.getElementById('loginGatewayTitle');
+  const portalSwitcherBox = document.getElementById('loginPortalSwitcherBox');
+  const portalLinkBox = document.getElementById('loginPortalLinkBox');
 
-  if (mode === 'client') {
-    if (btnClient) { btnClient.className = 'hf-btn hf-btn-primary'; }
-    if (btnAdmin) { btnAdmin.className = 'hf-btn hf-btn-secondary'; }
-    if (clientForm) clientForm.style.display = 'block';
-    if (adminForm) adminForm.style.display = 'none';
-    if (title) title.textContent = 'Cổng Đăng Nhập Khách Hàng & Người Dùng';
-  } else {
+  if (mode === 'admin') {
     if (btnClient) { btnClient.className = 'hf-btn hf-btn-secondary'; }
     if (btnAdmin) { btnAdmin.className = 'hf-btn hf-btn-primary'; }
     if (clientForm) clientForm.style.display = 'none';
     if (adminForm) adminForm.style.display = 'block';
+    if (registerForm) registerForm.style.display = 'none';
+    if (tabReg) tabReg.style.display = 'none';
+    if (tabLogin) { tabLogin.classList.add('active'); tabLogin.textContent = 'Đăng nhập Quản trị'; }
     if (title) title.textContent = 'Cổng Đăng Nhập Quản Trị Viên';
+    if (portalSwitcherBox) portalSwitcherBox.style.display = 'flex';
+    if (portalLinkBox) portalLinkBox.style.display = 'block';
+  } else {
+    // KHÁCH HÀNG / NGƯỜI DÙNG: KHÔNG HIỂN THỊ NÚT CHUYỂN CỔNG ADMIN
+    if (btnClient) { btnClient.className = 'hf-btn hf-btn-primary'; }
+    if (btnAdmin) { btnAdmin.className = 'hf-btn hf-btn-secondary'; }
+    if (clientForm) clientForm.style.display = 'block';
+    if (adminForm) adminForm.style.display = 'none';
+    if (registerForm) registerForm.style.display = 'none';
+    if (tabReg) tabReg.style.display = 'block';
+    if (tabLogin) { tabLogin.classList.add('active'); tabLogin.textContent = 'Đăng nhập Khách hàng'; }
+    if (title) title.textContent = 'Cổng Đăng Nhập Khách Hàng & Người Dùng';
+    if (portalSwitcherBox) portalSwitcherBox.style.display = 'none';
+    if (portalLinkBox) portalLinkBox.style.display = 'none';
   }
 }
 
@@ -594,11 +610,9 @@ function checkDedicatedPortalUrl() {
     if (adminTag && hasPermission('canManageUsers')) adminTag.style.display = 'inline-flex';
     if (clientTag) clientTag.style.display = 'none';
     setLoginPortalMode('admin');
-  } else if (portalType === 'client') {
-    if (adminTag) adminTag.style.display = 'none';
-    if (clientTag) clientTag.style.display = 'inline-flex';
-    setLoginPortalMode('client');
   } else {
+    if (adminTag) adminTag.style.display = 'none';
+    if (clientTag && hfState.currentUser) clientTag.style.display = 'inline-flex';
     setLoginPortalMode('client');
   }
 }
@@ -794,18 +808,27 @@ function logoutPnTaskUser() {
 }
 
 function switchLoginGatewayTab(tab) {
-  const loginForm = document.getElementById('loginFormContainer');
+  const clientLoginForm = document.getElementById('clientLoginFormContainer');
+  const adminLoginForm = document.getElementById('adminLoginFormContainer');
   const registerForm = document.getElementById('registerFormContainer');
   const tabLogin = document.getElementById('tabBtnLogin');
   const tabReg = document.getElementById('tabBtnRegister');
 
   if (tab === 'login') {
-    if (loginForm) loginForm.style.display = 'block';
+    if (currentLoginPortalMode === 'admin') {
+      if (adminLoginForm) adminLoginForm.style.display = 'block';
+      if (clientLoginForm) clientLoginForm.style.display = 'none';
+    } else {
+      if (clientLoginForm) clientLoginForm.style.display = 'block';
+      if (adminLoginForm) adminLoginForm.style.display = 'none';
+    }
     if (registerForm) registerForm.style.display = 'none';
     if (tabLogin) tabLogin.classList.add('active');
     if (tabReg) tabReg.classList.remove('active');
   } else {
-    if (loginForm) loginForm.style.display = 'none';
+    // TAB ĐĂNG KÝ
+    if (clientLoginForm) clientLoginForm.style.display = 'none';
+    if (adminLoginForm) adminLoginForm.style.display = 'none';
     if (registerForm) registerForm.style.display = 'block';
     if (tabLogin) tabLogin.classList.remove('active');
     if (tabReg) tabReg.classList.add('active');
@@ -2116,7 +2139,8 @@ function renderTasks() {
           <tr>
             <th style="width:36px;"></th>
             <th>Tên công việc</th>
-            <th>Thành viên phụ trách</th>
+            <th>Người giao công việc (Admin/Quản lý)</th>
+            <th>Người thực hiện</th>
             <th>Dự án</th>
             <th>Độ ưu tiên</th>
             <th>Trạng thái</th>
@@ -2128,7 +2152,7 @@ function renderTasks() {
   `;
 
   if (filtered.length === 0) {
-    tableHTML += `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:20px;">Không có công việc nào.</td></tr>`;
+    tableHTML += `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Không có công việc nào.</td></tr>`;
   } else {
     filtered.forEach(t => {
       const attachCount = (t.attachments || []).length;
@@ -2136,6 +2160,7 @@ function renderTasks() {
         <tr onclick="openTaskDetailDrawer('${t.id}')" style="cursor:pointer;">
           <td><input type="checkbox" class="task-checkbox" ${t.status === 'DONE' ? 'checked' : ''} onclick="event.stopPropagation(); toggleTaskDone('${t.id}')"></td>
           <td style="font-weight:600; ${t.status === 'DONE' ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${escapeHtml(t.title)}</td>
+          <td><span style="font-weight:600; font-size:0.8rem; color:var(--primary);">${escapeHtml(t.creator||'Quản trị viên (Admin)')}</span></td>
           <td><span style="font-weight:600; font-size:0.8rem;">${escapeHtml(t.assignee||'PN')}</span></td>
           <td style="color:var(--text-secondary); font-size:0.8rem;">${escapeHtml(t.project||'Hệ thống PN Task')}</td>
           <td><span class="hf-badge badge-${t.priority.toLowerCase()}">${formatPriorityVN(t.priority)}</span></td>
@@ -2301,10 +2326,23 @@ function openTaskDetailDrawer(taskId) {
 
   activeDrawerTaskId = taskId;
   const tInput = document.getElementById('drawerTaskTitle'); if (tInput) tInput.value = task.title;
+  const cInput = document.getElementById('drawerTaskCreator'); if (cInput) cInput.value = task.creator || 'Quản trị viên (Admin)';
   const dInput = document.getElementById('drawerTaskDesc'); if (dInput) dInput.value = task.desc || '';
   const sSelect = document.getElementById('drawerTaskStatus'); if (sSelect) sSelect.value = task.status;
   const pSelect = document.getElementById('drawerTaskPriority'); if (pSelect) pSelect.value = task.priority;
   const dueInput = document.getElementById('drawerTaskDue'); if (dueInput) dueInput.value = task.due || '';
+
+  const aSelect = document.getElementById('drawerTaskAssignee');
+  if (aSelect) {
+    aSelect.innerHTML = `<option value="Tất cả">Tất cả thành viên trong nhóm</option>`;
+    (hfState.users || []).forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u.name;
+      opt.textContent = `${u.name} (${u.role})`;
+      aSelect.appendChild(opt);
+    });
+    aSelect.value = task.assignee || 'Tất cả';
+  }
 
   const attachListElem = document.getElementById('drawerAttachmentsList');
   if (attachListElem) {
@@ -2354,6 +2392,7 @@ function saveDrawerTaskChanges() {
     const sSelect = document.getElementById('drawerTaskStatus'); if (sSelect) task.status = sSelect.value;
     const pSelect = document.getElementById('drawerTaskPriority'); if (pSelect) task.priority = pSelect.value;
     const dueInput = document.getElementById('drawerTaskDue'); if (dueInput) task.due = dueInput.value.trim();
+    const aSelect = document.getElementById('drawerTaskAssignee'); if (aSelect) task.assignee = aSelect.value;
 
     addAuditLog(`Chỉnh sửa chi tiết công việc [${task.title}]`);
     saveHfState(true);
