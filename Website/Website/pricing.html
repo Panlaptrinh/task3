@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gói sản phẩm & Bảng giá minh bạch | Fiine</title>
+  <meta name="description" content="Bảng giá phần mềm quản lý công việc Fiine. Chọn gói dịch vụ phù hợp với quy mô doanh nghiệp từ 5 đến 500+ nhân sự. Tiết kiệm 20% khi thanh toán theo năm." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="./css/fiine.css">
+  <script src="./js/main.js" defer></script>
+  <script src="./js/pricing.js" defer></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <a href="./index.html" class="brand-logo">
+        <svg viewBox="0 0 36 36" fill="none" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+          <rect width="36" height="36" rx="10" fill="#2563EB" />
+          <path d="M10 18L16 24L26 12" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+        <span>Fiine</span>
+      </a>
+
+      <nav class="main-nav">
+        <ul class="nav-list">
+          <li class="nav-item"><a href="./features.html" class="nav-link">Tính năng</a></li>
+          <li class="nav-item"><a href="./solutions.html" class="nav-link">Giải pháp</a></li>
+          <li class="nav-item"><a href="./index.html#video-showcase" class="nav-link">Video</a></li>
+          <li class="nav-item"><a href="./pricing.html" class="nav-link active">Gói sản phẩm</a></li>
+          <li class="nav-item"><a href="./news.html" class="nav-link">Blog</a></li>
+          <li class="nav-item"><a href="./about.html" class="nav-link">Về chúng tôi</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm btn-open-login">Đăng nhập</button>
+        <button class="btn btn-primary btn-sm btn-open-register">Đăng ký</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- PRICING HERO -->
+  <section class="section-padding" style="background: radial-gradient(circle at 50% 0%, rgba(37,99,235,0.08) 0%, rgba(248,250,252,0) 70%); text-align:center;">
+    <div class="container">
+      <div class="section-tag">Bảng giá Niêm yết</div>
+      <h1 class="hero-title" style="font-size:2.8rem;">Đầu tư hiệu quả cho Đội ngũ của bạn</h1>
+      <p class="section-desc" style="max-width:700px; margin:0 auto 40px auto;">
+        Chọn gói sản phẩm phù hợp với quy mô. Bắt đầu miễn phí 14 ngày không cần thẻ tín dụng.
+      </p>
+
+      <div class="pricing-controls">
+        <div class="billing-toggle">
+          <div class="toggle-option active" data-cycle="yearly">Thanh toán Năm <span class="discount-badge">Tiết kiệm 20%</span></div>
+          <div class="toggle-option" data-cycle="monthly">Thanh toán Tháng</div>
+        </div>
+
+        <div class="user-slider-box">
+          <label class="slider-label">Quy mô nhân sự: <span id="userCountDisplay">10 nhân sự</span></label>
+          <input type="range" min="5" max="200" value="10" step="5" class="range-slider" id="userCountSlider">
+        </div>
+      </div>
+
+      <div class="pricing-cards-grid" style="text-align:left;">
+        
+        <div class="pricing-card">
+          <div class="plan-name">Miễn phí</div>
+          <div class="plan-desc">Dành cho cá nhân hoặc nhóm nhỏ dưới 5 người.</div>
+          <div class="plan-price-box">
+            <span class="plan-price">0đ</span>
+            <span class="plan-period">/tháng</span>
+          </div>
+          <ul class="plan-features">
+            <li><span class="check-icon">✓</span> Tối đa 5 thành viên</li>
+            <li><span class="check-icon">✓</span> Tạo không giới hạn công việc</li>
+            <li><span class="check-icon">✓</span> 1GB Dung lượng lưu trữ</li>
+          </ul>
+          <button class="btn btn-secondary btn-open-register">Đăng ký ngay</button>
+        </div>
+
+        <div class="pricing-card popular">
+          <div class="popular-badge">Phổ biến nhất</div>
+          <div class="plan-name">Tiêu chuẩn</div>
+          <div class="plan-desc">Hoàn hảo cho Doanh nghiệp vừa & nhỏ (SMEs).</div>
+          <div class="plan-price-box">
+            <span class="plan-price" id="priceStandard">280.000đ</span>
+            <span class="plan-period">/tháng</span>
+          </div>
+          <ul class="plan-features">
+            <li><span class="check-icon">✓</span> Tính theo số nhân sự tùy chọn</li>
+            <li><span class="check-icon">✓</span> Quản lý bảng Kanban & List</li>
+            <li><span class="check-icon">✓</span> Trao đổi Chat & Giao task từ Chat</li>
+            <li><span class="check-icon">✓</span> Chấm công vị trí GPS / Wifi</li>
+            <li><span class="check-icon">✓</span> 50GB Dung lượng lưu trữ</li>
+          </ul>
+          <button class="btn btn-primary btn-open-register">Dùng thử 14 ngày</button>
+        </div>
+
+        <div class="pricing-card">
+          <div class="plan-name">Chuyên nghiệp</div>
+          <div class="plan-desc">Dành cho doanh nghiệp cần Tự động hóa & OKRs.</div>
+          <div class="plan-price-box">
+            <span class="plan-price" id="pricePro">520.000đ</span>
+            <span class="plan-period">/tháng</span>
+          </div>
+          <ul class="plan-features">
+            <li><span class="check-icon">✓</span> Đầy đủ tính năng gói Tiêu chuẩn</li>
+            <li><span class="check-icon">✓</span> Tự động hóa quy trình (Workflow)</li>
+            <li><span class="check-icon">✓</span> Quản lý mục tiêu OKRs</li>
+            <li><span class="check-icon">✓</span> Báo cáo tiến độ Realtime</li>
+            <li><span class="check-icon">✓</span> 200GB Dung lượng lưu trữ</li>
+          </ul>
+          <button class="btn btn-outline btn-open-register">Chọn gói Pro</button>
+        </div>
+
+        <div class="pricing-card">
+          <div class="plan-name">Doanh nghiệp</div>
+          <div class="plan-desc">Dành cho tập đoàn lớn cần bảo mật & Server riêng.</div>
+          <div class="plan-price-box">
+            <span class="plan-price" id="priceEnterprise">960.000đ</span>
+            <span class="plan-period">/tháng</span>
+          </div>
+          <ul class="plan-features">
+            <li><span class="check-icon">✓</span> Không giới hạn thành viên</li>
+            <li><span class="check-icon">✓</span> Hạ tầng riêng biệt SSO & SLA 99.9%</li>
+            <li><span class="check-icon">✓</span> Hỗ trợ kỹ thuật 24/7 chuyên biệt</li>
+          </ul>
+          <button class="btn btn-dark btn-open-demo">Tư vấn Doanh nghiệp</button>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FEATURE COMPARISON MATRIX TABLE -->
+  <section class="section-padding" style="background:#fff;">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">So sánh chi tiết tính năng</h2>
+        <p class="section-desc">Bảng minh bạch các tính năng đi kèm trong từng gói sản phẩm</p>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:700px; text-align:left;">
+          <thead>
+            <tr style="border-bottom:2px solid #e2e8f0; font-size:1.05rem;">
+              <th style="padding:16px;">Tính năng</th>
+              <th style="padding:16px; width:15%;">Miễn phí</th>
+              <th style="padding:16px; width:18%; color:#2563eb;">Tiêu chuẩn</th>
+              <th style="padding:16px; width:18%;">Chuyên nghiệp</th>
+              <th style="padding:16px; width:18%;">Doanh nghiệp</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Số lượng nhân sự tối đa</td>
+              <td style="padding:14px 16px;">5 người</td>
+              <td style="padding:14px 16px;">Linh hoạt</td>
+              <td style="padding:14px 16px;">Linh hoạt</td>
+              <td style="padding:14px 16px;">Không giới hạn</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Bảng Kanban & Task List</td>
+              <td style="padding:14px 16px;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Hợp nhất Chat & Họp trực tuyến</td>
+              <td style="padding:14px 16px;">—</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Chấm công vị trí GPS / Wifi</td>
+              <td style="padding:14px 16px;">—</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Tự động hóa quy trình (Automation)</td>
+              <td style="padding:14px 16px;">—</td>
+              <td style="padding:14px 16px;">Cơ bản</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">Nâng cao</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">Tùy chỉnh</td>
+            </tr>
+            <tr style="border-bottom:1px solid #f1f5f9;">
+              <td style="padding:14px 16px; font-weight:600;">Quản lý mục tiêu OKRs</td>
+              <td style="padding:14px 16px;">—</td>
+              <td style="padding:14px 16px;">—</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+              <td style="padding:14px 16px; color:#10b981; font-weight:700;">✓</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>© 2026 Fiine.vn - Bản quyền thuộc về TiCTOP Technology JSC.</div>
+        <div><a href="./index.html" style="color:#94a3b8;">Trang chủ</a> · <a href="./contact.html" style="color:#94a3b8;">Liên hệ</a></div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

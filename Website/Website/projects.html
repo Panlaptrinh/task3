@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="vi">
+	<head>
+		<meta charset="UTF-8" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+		<title>Dự án | Leo Digital</title>
+
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+		<link
+			href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+
+		<link rel="stylesheet" href="./css/style.css" />
+		<link rel="stylesheet" href="./css/responsive.css" />
+
+		<script src="./js/main.js" defer></script>
+		<script src="./js/animation.js" defer></script>
+		<script src="./js/smooth-scroll.js" defer></script>
+	</head>
+
+	<body>
+		<header class="site-header" id="siteHeader">
+			<div class="container header-inner">
+				<a href="./index.html" class="brand">
+					<span class="brand-mark">
+						<span></span>
+						<span></span>
+					</span>
+
+					<span>Leo Digital</span>
+				</a>
+
+				<nav class="desktop-nav" id="mainNavigation">
+					<div class="nav-dropdown" id="homeDropdown">
+						<a
+							href="./index.html"
+							class="nav-dropdown-button"
+							id="homeDropdownButton"
+						>
+							Trang chủ
+							<span class="dropdown-arrow">
+								<svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+									<path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</span>
+						</a>
+
+						<div class="nav-dropdown-menu">
+							<a href="./index.html#about">Giới thiệu</a>
+							<a href="./index.html#services">Dịch vụ</a>
+							<a href="./index.html#projects">Dự án</a>
+							<a href="./index.html#pricing">Bảng giá</a>
+						</div>
+					</div>
+
+					<a href="./about.html" class="nav-link"> Về chúng tôi </a>
+
+					<a href="./projects.html" class="nav-link active">
+						Dự án
+					</a>
+
+					<a href="./news.html" class="nav-link"> Tin tức </a>
+
+					<a href="./contact.html" class="nav-link"> Liên hệ </a>
+				</nav>
+
+				<button type="button" class="menu-toggle" id="menuToggle">
+					<span></span>
+					<span></span>
+				</button>
+			</div>
+		</header>
+
+		<main class="inner-page">
+			<section class="page-hero">
+				<div class="container">
+					<div class="page-hero-meta reveal">
+						<span>Selected Works</span>
+						<span>02</span>
+					</div>
+
+					<h1 class="page-title reveal">
+						Dự án tạo ra
+						<span>kết quả thực tế.</span>
+					</h1>
+
+					<p class="page-intro reveal">
+						Tuyển chọn các dự án về thương hiệu, website và Digital
+						Marketing.
+					</p>
+				</div>
+			</section>
+
+			<section class="section project-page-section">
+				<div class="container">
+					<div class="filter-bar reveal">
+						<button
+							type="button"
+							class="filter-button active"
+							data-filter="all"
+						>
+							Tất cả
+						</button>
+
+						<button
+							type="button"
+							class="filter-button"
+							data-filter="branding"
+						>
+							Branding
+						</button>
+
+						<button
+							type="button"
+							class="filter-button"
+							data-filter="website"
+						>
+							Website
+						</button>
+
+						<button
+							type="button"
+							class="filter-button"
+							data-filter="marketing"
+						>
+							Marketing
+						</button>
+					</div>
+
+					<div class="project-grid project-grid-large">
+						<article
+							class="project-card reveal filter-item"
+							data-category="branding"
+						>
+							<div
+								class="project-image project-image-placeholder"
+							>
+								<img
+									src="./assets/images/projects/nova-coffee.jpg"
+									alt="Dự án Nova Coffee"
+								/>
+								<span class="project-number">01</span>
+								<span class="project-category">Branding</span>
+								<span class="project-arrow">↗</span>
+							</div>
+
+							<div class="project-info">
+								<h3>Nova Coffee</h3>
+								<p>Branding · Packaging</p>
+							</div>
+						</article>
+
+						<article
+							class="project-card reveal filter-item"
+							data-category="website"
+						>
+							<div
+								class="project-image project-image-placeholder"
+							>
+								<img
+									src="./assets/images/projects/nova-coffee.jpg"
+									alt="Dự án Nova Coffee"
+								/>
+
+								<span class="project-number">02</span>
+								<span class="project-category">Website</span>
+								<span class="project-arrow">↗</span>
+							</div>
+
+							<div class="project-info">
+								<h3>Motion Studio</h3>
+								<p>Website · UI/UX</p>
+							</div>
+						</article>
+
+						<article
+							class="project-card reveal filter-item"
+							data-category="marketing"
+						>
+							<div
+								class="project-image project-image-placeholder"
+							>
+								<img
+									src="./assets/images/projects/nova-coffee.jpg"
+									alt="Dự án Nova Coffee"
+								/>
+
+								<span class="project-number">03</span>
+								<span class="project-category">Marketing</span>
+								<span class="project-arrow">↗</span>
+							</div>
+
+							<div class="project-info">
+								<h3>Green Horizon</h3>
+								<p>Marketing · Content</p>
+							</div>
+						</article>
+
+						<article
+							class="project-card reveal filter-item"
+							data-category="branding"
+						>
+							<div
+								class="project-image project-image-placeholder"
+							>
+								<img
+									src="./assets/images/projects/nova-coffee.jpg"
+									alt="Dự án Nova Coffee"
+								/>
+								<span>04</span>
+								<strong>Identity</strong>
+								<span class="project-arrow">↗</span>
+							</div>
+
+							<div class="project-info">
+								<h3>North House</h3>
+								<p>Brand Strategy · Identity</p>
+							</div>
+						</article>
+					</div>
+				</div>
+			</section>
+		</main>
+
+		<footer class="site-footer">
+			<div class="container">
+				<div class="footer-main">
+					<div>
+						<a href="./index.html" class="footer-brand">
+							Leo Digital
+						</a>
+
+						<p>
+							Kiến tạo trải nghiệm số<br />
+							cho thương hiệu hiện đại.
+						</p>
+					</div>
+
+					<div class="footer-links">
+						<a href="./about.html">Về chúng tôi</a>
+						<a href="./projects.html">Dự án</a>
+						<a href="./news.html">Tin tức</a>
+						<a href="./contact.html">Liên hệ</a>
+					</div>
+
+					<div class="footer-contact">
+						<a href="mailto:hello@leodigital.vn">
+							hello@leodigital.vn
+						</a>
+
+						<a href="tel:0796767668"> 0796 767 668 </a>
+
+						<span>Quy Nhơn, Việt Nam</span>
+					</div>
+				</div>
+
+				<div class="footer-bottom">
+					<span>
+						© <span class="current-year"></span> Leo Digital
+					</span>
+
+					<span>Designed with purpose.</span>
+				</div>
+			</div>
+		</footer>
+	</body>
+</html>

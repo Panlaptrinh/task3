@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liên hệ & Đặt lịch Demo | Fiine Workspace</title>
+  <meta name="description" content="Liên hệ bộ phận tư vấn Fiine hoặc đăng ký lịch Demo 5 phút trực tiếp với chuyên viên giải pháp công nghệ." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="./css/fiine.css">
+  <script src="./js/main.js" defer></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header" id="siteHeader">
+    <div class="container header-inner">
+      <a href="./index.html" class="brand-logo">
+        <svg viewBox="0 0 36 36" fill="none" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+          <rect width="36" height="36" rx="10" fill="#2563EB" />
+          <path d="M10 18L16 24L26 12" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+        <span>Fiine</span>
+      </a>
+
+      <nav class="main-nav">
+        <ul class="nav-list">
+          <li class="nav-item"><a href="./features.html" class="nav-link">Tính năng</a></li>
+          <li class="nav-item"><a href="./solutions.html" class="nav-link">Giải pháp</a></li>
+          <li class="nav-item"><a href="./index.html#video-showcase" class="nav-link">Video</a></li>
+          <li class="nav-item"><a href="./pricing.html" class="nav-link">Gói sản phẩm</a></li>
+          <li class="nav-item"><a href="./news.html" class="nav-link">Blog</a></li>
+          <li class="nav-item"><a href="./about.html" class="nav-link">Về chúng tôi</a></li>
+        </ul>
+      </nav>
+
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm btn-open-login">Đăng nhập</button>
+        <button class="btn btn-primary btn-sm btn-open-register">Đăng ký</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTACT SECTION -->
+  <section class="section-padding">
+    <div class="container">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:flex-start;">
+        
+        <div>
+          <div class="section-tag">Kết nối với chúng tôi</div>
+          <h1 class="hero-title" style="font-size:2.5rem;">Đặt lịch Demo 5 Phút với Chuyên viên Fiine</h1>
+          <p class="section-desc" style="margin-bottom:30px;">
+            Đội ngũ tư vấn Fiine sẽ trực tiếp trải nghiệm giải pháp và hỗ trợ bạn chuẩn hóa quy trình làm việc phù hợp nhất với ngành nghề của bạn.
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:20px; font-size:1rem; color:#374151;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:1.5rem;">📍</span>
+              <div>
+                <strong>Trụ sở Hà Nội:</strong> Tòa nhà Fiine Tower, Phường Cầu Giấy, Hà Nội
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:1.5rem;">🏢</span>
+              <div>
+                <strong>Văn phòng TP.HCM:</strong> Quận 1, TP. Hồ Chí Minh
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:1.5rem;">📞</span>
+              <div>
+                <strong>Hotline hỗ trợ:</strong> 1900 6868 / 0988 123 456
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:1.5rem;">✉️</span>
+              <div>
+                <strong>Email hỗ trợ:</strong> support@fiine.vn
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#fff; padding:36px; border-radius:18px; border:1px solid #e2e8f0; box-shadow:0 10px 30px rgba(0,0,0,0.06);">
+          <h3 style="font-size:1.4rem; margin-bottom:16px;">Điền thông tin Đăng ký Demo</h3>
+          
+          <form onsubmit="event.preventDefault(); alert('Cảm ơn bạn! Chuyên viên Fiine sẽ gọi điện xác nhận lịch hẹn trong 15 phút.');">
+            <div class="form-group">
+              <label class="form-label">Họ và tên *</label>
+              <input type="text" class="form-input" placeholder="Nguyễn Văn A" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Số điện thoại Zalo *</label>
+              <input type="tel" class="form-input" placeholder="0901 234 567" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Email làm việc</label>
+              <input type="email" class="form-input" placeholder="ten@doanhnghiep.com">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Tên Doanh nghiệp & Quy mô</label>
+              <select class="form-select">
+                <option>Doanh nghiệp dưới 10 người</option>
+                <option>Doanh nghiệp 10 - 30 người</option>
+                <option>Doanh nghiệp 30 - 100 người</option>
+                <option>Tập đoàn trên 100 người</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">⚡ Gửi yêu cầu ngay</button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>© 2026 Fiine.vn - Bản quyền thuộc về TiCTOP Technology JSC.</div>
+        <div><a href="./index.html" style="color:#94a3b8;">Trang chủ</a> · <a href="./pricing.html" style="color:#94a3b8;">Bảng giá</a></div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

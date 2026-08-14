@@ -407,10 +407,16 @@
   <!-- LOGIN & REGISTER GATEWAY OVERLAY SCREEN -->
   <div class="login-gateway-overlay" id="pnTaskLoginGateway" style="display: none;">
     <div class="login-gateway-card">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <div class="logo-icon" style="width: 48px; height: 48px; font-size: 1.4rem; margin: 0 auto 12px auto;">PN</div>
-        <h2>Cổng Đăng Nhập Doanh Nghiệp</h2>
-        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;">Hệ thống Quản lý Công việc & Dự án Doanh nghiệp PN Task</p>
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div class="logo-icon" style="width: 48px; height: 48px; font-size: 1.4rem; margin: 0 auto 10px auto;">PN</div>
+        <h2 id="loginGatewayTitle" style="font-size:1.25rem;">Cổng Đăng Nhập Khách Hàng & Người Dùng</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 4px;" id="loginGatewaySubTitle">Hệ thống Quản lý Công việc & Dự án PN Task</p>
+      </div>
+
+      <!-- PORTAL TYPE SWITCHER (CLIENT vs ADMIN) -->
+      <div style="display:flex; justify-content:center; gap:8px; margin-bottom:14px;" id="loginPortalSwitcherBox">
+        <button id="btnPortalClient" class="hf-btn hf-btn-primary" onclick="setLoginPortalMode('client')" style="flex:1; font-size:0.8rem; padding:8px 10px;">Cổng Khách hàng & Người dùng</button>
+        <button id="btnPortalAdmin" class="hf-btn hf-btn-secondary" onclick="setLoginPortalMode('admin')" style="flex:1; font-size:0.8rem; padding:8px 10px;">Cổng Quản trị viên</button>
       </div>
 
       <!-- DUAL TAB SWITCHER -->
@@ -419,14 +425,29 @@
         <div class="login-tab-btn" id="tabBtnRegister" onclick="switchLoginGatewayTab('register')">Đăng ký Tài khoản</div>
       </div>
 
-      <!-- FORM 1: LOGIN -->
-      <div id="loginFormContainer">
+      <!-- FORM 1A: CLIENT & USER LOGIN (REQUIRE USERNAME & PASSWORD) -->
+      <div id="clientLoginFormContainer">
         <div class="form-group">
-          <label class="form-label">Mã Quản trị viên (Admin Code)</label>
-          <input type="password" id="loginAdminCodeInput" class="form-input" placeholder="Nhập mã QTV..." value="" autocomplete="off" onkeydown="if(event.key==='Enter') loginPnTaskUser(document.getElementById('loginAdminCodeInput').value)">
+          <label class="form-label">Tên đăng nhập (Username) (*)</label>
+          <input type="text" id="loginUsernameInput" class="form-input" placeholder="Ví dụ: tran / bannguyen / nguyenvana" value="" autocomplete="username">
         </div>
 
-        <button class="hf-btn hf-btn-primary" onclick="loginPnTaskUser(document.getElementById('loginAdminCodeInput').value)" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem;">Đăng nhập Cổng Quản trị</button>
+        <div class="form-group">
+          <label class="form-label">Mật khẩu (*) </label>
+          <input type="password" id="loginPasswordInput" class="form-input" placeholder="Nhập mật khẩu cá nhân..." value="" autocomplete="current-password" onkeydown="if(event.key==='Enter') submitClientLogin()">
+        </div>
+
+        <button class="hf-btn hf-btn-primary" onclick="submitClientLogin()" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem;">Đăng nhập Khách hàng</button>
+      </div>
+
+      <!-- FORM 1B: ADMIN LOGIN (SINGLE ADMIN CODE FIELD) -->
+      <div id="adminLoginFormContainer" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Mã Quản trị viên (Admin Code) (*)</label>
+          <input type="password" id="loginAdminCodeInput" class="form-input" placeholder="Nhập mã QTV..." value="" autocomplete="off" onkeydown="if(event.key==='Enter') submitAdminLogin()">
+        </div>
+
+        <button class="hf-btn hf-btn-primary" onclick="submitAdminLogin()" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem;">Đăng nhập Cổng Quản trị</button>
       </div>
 
       <!-- FORM 2: REGISTRATION -->
@@ -459,12 +480,12 @@
       </div>
 
       <!-- DEDICATED DIRECT PORTAL LINKS -->
-      <div class="portal-link-box">
-        <div>Đường dẫn dành riêng cho Cổng Đăng nhập:</div>
+      <div class="portal-link-box" id="loginPortalLinkBox">
+        <div>Chuyển đổi cổng đăng nhập:</div>
         <div style="margin-top:4px; display:flex; justify-content:center; gap:12px;">
-          <span class="portal-link-btn" onclick="window.location.search='?portal=admin'">Cổng Quản trị viên</span>
+          <span class="portal-link-btn" onclick="setLoginPortalMode('client')">Cổng Khách hàng</span>
           <span style="color:var(--border);">|</span>
-          <span class="portal-link-btn" onclick="window.location.search='?portal=client'">Cổng Khách hàng</span>
+          <span class="portal-link-btn" onclick="setLoginPortalMode('admin')">Cổng Quản trị viên</span>
         </div>
       </div>
 

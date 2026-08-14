@@ -315,88 +315,47 @@
 
         <!-- View 13: Settings & Data Management -->
         <div id="view_settings" class="hf-view-panel" style="display: none;">
-          <h1 style="margin-bottom: 16px;">Cài đặt Hệ thống & Hồ sơ Người dùng</h1>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;" class="dashboard-two-col">
+          <h1 style="margin-bottom: 16px;">Cài đặt Hệ thống & Quản lý Dữ liệu</h1>
+          <div class="hf-card" style="max-width: 500px;">
+            <h3 style="margin-bottom:14px;">Cấu hình & Sao lưu Hệ thống</h3>
             
-            <!-- COLUMN 1: USER PERSONAL PROFILE -->
-            <div class="hf-card">
-              <h3 style="margin-bottom: 14px;">Hồ sơ Cá nhân người dùng</h3>
-              
-              <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
-                <div class="avatar-badge" id="settingsUserAvatarDisplay" style="width:44px; height:44px; font-size:1.2rem;">PN</div>
-                <div>
-                  <div style="font-weight:700; font-size:1rem;" id="settingsUserNameDisplay">PN</div>
-                  <div style="font-size:0.8rem; color:var(--text-secondary);" id="settingsUserRoleDisplay">Quản trị viên (Giám đốc)</div>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Họ và Tên cá nhân (*)</label>
-                <input type="text" id="settingsFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Tên đăng nhập (*)</label>
-                <input type="text" id="settingsUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
-                <input type="text" id="settingsPasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Email liên hệ</label>
-                <input type="email" id="settingsEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
-              </div>
-
-              <button class="hf-btn hf-btn-primary" onclick="submitSaveSettingsProfile()" style="width: 100%; margin-top: 10px;">Lưu Hồ sơ Cá nhân</button>
+            <div class="form-group">
+              <label class="form-label">Tự đổi Chế độ Giao diện Dark / Light</label>
+              <button class="hf-btn hf-btn-secondary" onclick="toggleDarkMode()">Bật / Tắt Chế độ Tối (Dark Mode)</button>
             </div>
 
-            <!-- COLUMN 2: SYSTEM CONFIG & BACKUP -->
-            <div class="hf-card">
-              <h3 style="margin-bottom: 14px;">Cấu hình & Sao lưu Hệ thống</h3>
-              
-              <div class="form-group">
-                <label class="form-label">Chế độ Giao diện Sáng / Tối</label>
-                <button class="hf-btn hf-btn-secondary" onclick="toggleDarkMode()" style="width:100%;">Bật / Tắt Chế độ Tối (Dark Mode)</button>
-              </div>
-
-              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
-                <label class="form-label">Xuất dữ liệu Sao lưu hệ thống (Tệp JSON)</label>
-                <button class="hf-btn hf-btn-primary" onclick="exportSystemDataJSON()" style="width:100%;">Xuất Dữ liệu Hệ thống</button>
-              </div>
-
-              <div class="form-group" style="margin-top:14px;">
-                <label class="form-label">Phục hồi dữ liệu từ tệp sao lưu (Import JSON)</label>
-                <input type="file" id="importJsonFileInput" accept=".json" style="display:none;" onchange="importSystemDataJSON(event)">
-                <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('importJsonFileInput').click()" style="width:100%;">Phục hồi Dữ liệu</button>
-              </div>
-
-              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
-                <label class="form-label" style="color:var(--danger);">Khôi phục Dữ liệu Mặc định Ban đầu</label>
-                <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:var(--danger); width:100%;" onclick="resetWorkspaceData()">Khôi phục Mặc định</button>
-              </div>
-
+            <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+              <label class="form-label">Xuất dữ liệu Sao lưu hệ thống (Tệp JSON)</label>
+              <button class="hf-btn hf-btn-primary" onclick="exportSystemDataJSON()">Xuất Dữ liệu Hệ thống</button>
             </div>
 
-            <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
-            <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
-              <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Firebase Realtime Cloud Sync)</h3>
-              <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
-                Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase.
-              </p>
-              
-              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
-                <div>
-                  <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
-                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
-                </div>
-                <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Đám mây Ngay</button>
-              </div>
+            <div class="form-group" style="margin-top:14px;">
+              <label class="form-label">Phục hồi dữ liệu từ tệp sao lưu (Import JSON)</label>
+              <input type="file" id="importJsonFileInput" accept=".json" style="display:none;" onchange="importSystemDataJSON(event)">
+              <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('importJsonFileInput').click()">Phục hồi Dữ liệu</button>
             </div>
 
+            <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+              <label class="form-label" style="color:var(--danger);">Khôi phục Dữ liệu Mặc định Ban đầu</label>
+              <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:var(--danger); width:100%;" onclick="resetWorkspaceData()">Khôi phục Mặc định</button>
+            </div>
+
+          </div>
+
+          <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
+          <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
+            <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Firebase Realtime Cloud Sync)</h3>
+            <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
+              Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase.
+            </p>
+            
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
+              <div>
+                <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
+              </div>
+              <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Đám mây Ngay</button>
+            </div>
           </div>
         </div>
 
@@ -546,14 +505,8 @@
 
   <!-- USER SWITCHER DROPDOWN MODAL -->
   <div class="hf-modal-overlay" id="userProfileDropdownModal" onclick="this.classList.remove('active')">
-    <div class="hf-modal-box" style="max-width: 340px; padding: 20px;" onclick="event.stopPropagation()">
-      <div style="text-align:center; padding-bottom: 12px; margin-bottom: 12px; border-bottom:1px solid var(--border);">
-        <div class="avatar-badge" id="dropdownCurrentAvatar" style="width:42px; height:42px; font-size:1.2rem; margin: 0 auto 8px auto;">PN</div>
-        <div style="font-weight:700; font-size:1rem;" id="dropdownCurrentName">PN</div>
-        <div style="font-size:0.8rem; color:var(--text-secondary);" id="dropdownCurrentRole">Quản trị viên (Giám đốc)</div>
-        <button class="hf-btn hf-btn-primary" onclick="document.getElementById('userProfileDropdownModal').classList.remove('active'); openMyProfileModal();" style="margin-top:10px; width:100%; font-size:0.8rem; padding:6px 12px;">Hồ sơ Cá nhân & Đổi Mật khẩu</button>
-      </div>
-      <h3 style="margin-bottom: 10px; font-size:0.95rem;">Chuyển đổi Tài khoản Nhanh</h3>
+    <div class="hf-modal-box" style="max-width: 320px; padding: 16px;" onclick="event.stopPropagation()">
+      <h3 style="margin-bottom: 12px;">Chuyển đổi Tài khoản Nhanh</h3>
       <div style="display: flex; flex-direction: column; gap: 8px;" id="fastSwitchUserListContainer"></div>
     </div>
   </div>
@@ -656,7 +609,7 @@
     </div>
   </div>
 
-  <!-- REAL FILE UPLOAD MODAL -->
+  <!-- REAL FILE UPLOADING MODAL -->
   <div class="hf-modal-overlay" id="uploadFileModalOverlay">
     <div class="hf-modal-box" style="max-width:450px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
@@ -724,46 +677,6 @@
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
         <button class="hf-btn hf-btn-secondary" onclick="closeEditUserModal()">Hủy</button>
         <button class="hf-btn hf-btn-primary" onclick="submitSaveEditUser()">Lưu Thay đổi</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MY PERSONAL PROFILE MODAL -->
-  <div class="hf-modal-overlay" id="myProfileModalOverlay">
-    <div class="hf-modal-box" style="max-width:480px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3>Hồ sơ Cá nhân & Cài đặt Tài khoản</h3>
-        <button onclick="closeMyProfileModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
-      </div>
-
-      <div style="text-align:center; margin-bottom: 16px;">
-        <div class="avatar-badge" id="myProfileAvatarDisplay" style="width:48px; height:48px; font-size:1.3rem; margin: 0 auto 6px auto;">PN</div>
-        <div style="font-weight:700; font-size:0.95rem;" id="myProfileRoleDisplay">Quản trị viên (Giám đốc)</div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Họ và Tên cá nhân (*)</label>
-        <input type="text" id="myProfileFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Tên đăng nhập (Username) (*)</label>
-        <input type="text" id="myProfileUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
-        <input type="text" id="myProfilePasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Email liên hệ</label>
-        <input type="email" id="myProfileEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
-      </div>
-
-      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-        <button class="hf-btn hf-btn-secondary" onclick="closeMyProfileModal()">Hủy</button>
-        <button class="hf-btn hf-btn-primary" onclick="submitSaveMyProfile()">Cập nhật Hồ sơ</button>
       </div>
     </div>
   </div>
