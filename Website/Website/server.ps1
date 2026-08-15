@@ -13,7 +13,8 @@ while ($listener.IsListening) {
         $response = $context.Response
 
         $path = $request.Url.LocalPath
-        if ($path -eq "/") { $path = "/index.html" }
+        if ($path -eq "/" -or $path -eq "") { $path = "/index.html" }
+        if ($path -eq "/admin" -or $path -eq "/admin/") { $path = "/index.html" }
         $filePath = Join-Path $root $path
 
         if (Test-Path $filePath -PathType Leaf) {

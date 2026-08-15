@@ -395,8 +395,15 @@ function renderFastSwitchModal() {
 
   container.innerHTML = '';
   const currentId = currentUser.id || '';
+  const isCurrentAdmin = currentUser.username === 'pn' || (currentUser.role && (currentUser.role.includes('Quản trị') || currentUser.role.includes('ADMIN')));
 
-  (hfState.users || []).forEach(u => {
+  const availableUsers = (hfState.users || []).filter(u => {
+    const isTargetAdmin = u.username === 'pn' || (u.role && (u.role.includes('Quản trị') || u.role.includes('ADMIN')));
+    if (!isCurrentAdmin && isTargetAdmin) return false;
+    return true;
+  });
+
+  availableUsers.forEach(u => {
     const isCurrent = u.id === currentId;
     const btn = document.createElement('button');
     btn.className = `hf-btn ${isCurrent ? 'hf-btn-primary' : 'hf-btn-secondary'}`;
@@ -602,11 +609,13 @@ function setLoginPortalMode(mode) {
 function checkDedicatedPortalUrl() {
   const params = new URLSearchParams(window.location.search);
   const portalType = params.get('portal');
+  const pathname = window.location.pathname.toLowerCase();
+  const isAdminPath = portalType === 'admin' || pathname.endsWith('/admin') || pathname.endsWith('/admin.html') || pathname.includes('/admin/');
 
   const adminTag = document.getElementById('topbarPortalAdminTag');
   const clientTag = document.getElementById('topbarPortalClientTag');
 
-  if (portalType === 'admin') {
+  if (isAdminPath) {
     if (adminTag && hasPermission('canManageUsers')) adminTag.style.display = 'inline-flex';
     if (clientTag) clientTag.style.display = 'none';
     setLoginPortalMode('admin');
@@ -1999,6 +2008,15 @@ function updateTopNavUserDisplay() {
 function switchUserProfile(userId) {
   const target = hfState.users.find(u => u.id === userId);
   if (target) {
+    const currentUser = hfState.currentUser;
+    const isCurrentAdmin = currentUser && (currentUser.username === 'pn' || (currentUser.role && (currentUser.role.includes('Quản trị') || currentUser.role.includes('ADMIN'))));
+    const isTargetAdmin = target.username === 'pn' || (target.role && (target.role.includes('Quản trị') || target.role.includes('ADMIN')));
+
+    if (isTargetAdmin && !isCurrentAdmin) {
+      alert('Tài khoản của bạn không có quyền chuyển sang tài khoản Quản trị viên.');
+      return;
+    }
+
     hfState.currentUser = target;
     hfState.isLoggedIn = true;
     saveHfState(true);
