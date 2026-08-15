@@ -348,10 +348,26 @@ function downloadRealFile(dataUrl, fileName) {
 /* ==========================================================================
    ISOLATED TASK ACCESS CONTROL & PERMISSION ENGINE
    ========================================================================== */
+function checkIsAdmin(user) {
+  if (!user) return false;
+  if (user.username === 'pn' || user.id === 'u-pn' || user.name === 'PN') return true;
+  if (user.permissions && user.permissions.canManageUsers === true) return true;
+  const role = (user.role || '').toLowerCase();
+  if (
+    role.includes('quản trị') ||
+    role.includes('admin') ||
+    role.includes('qtv') ||
+    role.includes('giám đốc')
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function hasPermission(permissionName) {
   const user = hfState.currentUser;
   if (!user) return false;
-  if (user.role.includes('Quản trị') || user.role.includes('ADMIN') || user.username === 'pn' || user.name === 'PN') return true;
+  if (checkIsAdmin(user)) return true;
 
   return user.permissions && user.permissions[permissionName] === true;
 }
@@ -360,8 +376,7 @@ function getVisibleTasks() {
   const user = hfState.currentUser;
   if (!user) return [];
 
-  const isPNAdmin = user.username === 'pn' || (user.role && (user.role.includes('Quản trị') || user.role.includes('ADMIN')));
-  if (isPNAdmin) {
+  if (checkIsAdmin(user)) {
     return hfState.tasks || [];
   }
 
@@ -383,42 +398,45 @@ function renderFastSwitchModal() {
   const container = document.getElementById('fastSwitchUserListContainer');
   if (!container) return;
 
-  const currentUser = hfState.currentUser || { name: 'PN', role: 'Quản trị viên (Giám đốc)', avatar: 'PN' };
+  const currentUser = hfState.currentUser;
 
   const avElem = document.getElementById('dropdownCurrentAvatar');
   const nameElem = document.getElementById('dropdownCurrentName');
   const roleElem = document.getElementById('dropdownCurrentRole');
 
-  if (avElem) avElem.textContent = currentUser.avatar || currentUser.name.charAt(0).toUpperCase();
-  if (nameElem) nameElem.textContent = currentUser.name;
-  if (roleElem) roleElem.textContent = currentUser.role;
+  if (currentUser) {
+    if (avElem) avElem.textContent = currentUser.avatar || (currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U');
+    if (nameElem) nameElem.textContent = currentUser.name || 'Người dùng';
+    if (roleElem) roleElem.textContent = currentUser.role || 'Thành viên';
+  } else {
+    if (avElem) avElem.textContent = '?';
+    if (nameElem) nameElem.textContent = 'Chưa đăng nhập';
+    if (roleElem) roleElem.textContent = 'Khách';
+  }
 
   container.innerHTML = '';
-  const currentId = currentUser.id || '';
-  const isCurrentAdmin = currentUser.username === 'pn' || (currentUser.role && (currentUser.role.includes('Quản trị') || currentUser.role.includes('ADMIN')));
 
-  const availableUsers = (hfState.users || []).filter(u => {
-    const isTargetAdmin = u.username === 'pn' || (u.role && (u.role.includes('Quản trị') || u.role.includes('ADMIN')));
-    if (!isCurrentAdmin && isTargetAdmin) return false;
-    return true;
-  });
+  // Render security isolation notice and direct logout button
+  const securityNotice = document.createElement('div');
+  securityNotice.style.cssText = 'font-size: 0.82rem; color: var(--text-secondary); background: var(--bg-secondary); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 12px; line-height: 1.4; border: 1px solid var(--border);';
+  securityNotice.innerHTML = '🔒 <strong>Bảo mật Cá nhân Đã Bật</strong><br>Mỗi người dùng chỉ được phép truy cập tài khoản của chính mình. Tính năng chuyển đổi tài khoản trực tiếp đã bị khóa.';
+  container.appendChild(securityNotice);
 
-  availableUsers.forEach(u => {
-    const isCurrent = u.id === currentId;
-    const btn = document.createElement('button');
-    btn.className = `hf-btn ${isCurrent ? 'hf-btn-primary' : 'hf-btn-secondary'}`;
-    btn.style.justifyContent = 'flex-start';
-    btn.style.width = '100%';
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      switchUserProfile(u.id);
-      const modal = document.getElementById('userProfileDropdownModal');
-      if (modal) modal.classList.remove('active');
-    };
-
-    btn.innerHTML = `<strong>${escapeHtml(u.name)}</strong> (${escapeHtml(u.role)})`;
-    container.appendChild(btn);
-  });
+  const logoutBtn = document.createElement('button');
+  logoutBtn.className = 'hf-btn hf-btn-secondary';
+  logoutBtn.style.width = '100%';
+  logoutBtn.style.padding = '10px';
+  logoutBtn.style.fontSize = '0.85rem';
+  logoutBtn.style.color = '#e74c3c';
+  logoutBtn.style.borderColor = 'rgba(231, 76, 60, 0.4)';
+  logoutBtn.innerHTML = 'Đăng xuất khỏi Hệ thống';
+  logoutBtn.onclick = (e) => {
+    e.stopPropagation();
+    const modal = document.getElementById('userProfileDropdownModal');
+    if (modal) modal.classList.remove('active');
+    logoutPnTaskUser();
+  };
+  container.appendChild(logoutBtn);
 }
 
 function openMyProfileModal() {
@@ -1786,9 +1804,140 @@ function renderProjects() {
   if (!container) return;
 
   const currentUser = hfState.currentUser || { name: 'Thành viên', username: 'guest' };
+  const isPNAdmin = checkIsAdmin(currentUser);
 
-  let html = `
-    <!-- SECTION 1: NỘI DUNG CẦN LÀM CÁ NHÂN -->
+  let html = '';
+
+  // ADMIN EXECUTIVE VIEW: Sub-account task assignment & sub-account created tasks
+  if (isPNAdmin) {
+    const adminAssignedTasks = (hfState.tasks || []).filter(t => {
+      const isCreatorAdmin = (t.creator === 'PN' || t.creator === 'pn' || (t.creator || '').includes('Quản trị'));
+      const isAssigneeSub = t.assignee && t.assignee !== 'PN' && t.assignee !== 'pn' && !(t.assignee || '').includes('Quản trị');
+      return isCreatorAdmin && isAssigneeSub;
+    });
+
+    const subCreatedTasks = (hfState.tasks || []).filter(t => {
+      const isCreatorSub = t.creator && t.creator !== 'PN' && t.creator !== 'pn' && !(t.creator || '').includes('Quản trị');
+      return isCreatorSub;
+    });
+
+    const subAccounts = (hfState.users || []).filter(u => u.username !== 'pn' && u.id !== 'u-pn');
+
+    // SECTION A: DASHBOARD CARDS FOR SUB-ACCOUNT TASK BREAKDOWN
+    html += `
+      <div style="margin-bottom:28px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <h3 style="color:var(--primary); font-weight:700;">📊 Phân công Công việc Theo từng Tài khoản Con</h3>
+            <p style="color:var(--text-secondary); font-size:0.85rem;">Tổng quan khối lượng công việc được giao và tự khởi tạo của các thành viên.</p>
+          </div>
+          <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">+ Giao Công việc Mới</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:14px;">
+    `;
+
+    subAccounts.forEach(u => {
+      const uTasks = (hfState.tasks || []).filter(t => t.assignee === u.name || t.assignee === u.username);
+      const uCreatedTasks = (hfState.tasks || []).filter(t => t.creator === u.name || t.creator === u.username);
+      const done = uTasks.filter(t => t.status === 'DONE').length;
+      const total = uTasks.length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      html += `
+        <div class="hf-card" style="border-top:3px solid var(--primary); padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="font-size:0.95rem;">${escapeHtml(u.name)}</strong>
+            <span class="hf-badge badge-progress" style="font-size:0.75rem;">${u.role}</span>
+          </div>
+          <div style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:8px;">
+            Admin giao: <strong>${uTasks.length} task</strong> | Tự tạo: <strong>${uCreatedTasks.length} task</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); margin-bottom:4px;">
+            <span>Tiến độ hoàn thành</span>
+            <strong>${done}/${total} (${pct}%)</strong>
+          </div>
+          <div style="width:100%; background:var(--surface-muted); height:6px; border-radius:3px; overflow:hidden;">
+            <div style="width:${pct}%; background:var(--success); height:100%;"></div>
+          </div>
+          <button onclick="openSubAccountDetailsModal('${u.id}')" class="hf-btn hf-btn-secondary" style="width:100%; margin-top:10px; padding:4px 8px; font-size:0.75rem;">👁️ Xem Chi tiết Task</button>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+
+    // SECTION B: TASK ADMIN GIAO CHO TÀI KHOẢN CON
+    html += `
+      <div style="margin-bottom:28px;">
+        <h3 style="margin-bottom:12px; color:#2980b9;">
+          📌 Tất cả Công việc Admin đã Giao cho các Tài khoản Con (${adminAssignedTasks.length})
+        </h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+    `;
+
+    if (adminAssignedTasks.length === 0) {
+      html += `<div class="hf-card" style="grid-column: 1 / -1; text-align:center; color:var(--text-muted); padding:20px;">
+        Admin chưa giao công việc nào cho tài khoản con.
+      </div>`;
+    } else {
+      adminAssignedTasks.forEach(t => {
+        html += `
+          <div class="hf-card" onclick="openTaskDetailDrawer('${t.id}')" style="cursor:pointer; border-left: 4px solid #3498db;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.75rem; font-weight:700; color:#2980b9;">📌 Admin Giao</span>
+              <span class="hf-badge badge-${t.status.toLowerCase().replace('_', '-')}">${formatStatusVN(t.status)}</span>
+            </div>
+            <h4 style="font-weight:700; margin-bottom:6px;">${escapeHtml(t.title)}</h4>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:10px;">Giao cho: <strong style="color:var(--primary);">${escapeHtml(t.assignee)}</strong></p>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border); padding-top:8px;">
+              <span>Dự án: ${escapeHtml(t.project || 'PN Task')}</span>
+              <span>Hạn: ${escapeHtml(t.due)}</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    html += `</div></div>`;
+
+    // SECTION C: TASK DO TÀI KHOẢN CON TỰ TẠO
+    html += `
+      <div style="margin-bottom:28px;">
+        <h3 style="margin-bottom:12px; color:#8e44ad;">
+          📝 Tất cả Công việc do các Tài khoản Con Tự Tạo (${subCreatedTasks.length})
+        </h3>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+    `;
+
+    if (subCreatedTasks.length === 0) {
+      html += `<div class="hf-card" style="grid-column: 1 / -1; text-align:center; color:var(--text-muted); padding:20px;">
+        Chưa có tài khoản con nào tự khởi tạo công việc.
+      </div>`;
+    } else {
+      subCreatedTasks.forEach(t => {
+        html += `
+          <div class="hf-card" onclick="openTaskDetailDrawer('${t.id}')" style="cursor:pointer; border-left: 4px solid #9b59b6;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.75rem; font-weight:700; color:#8e44ad;">📝 Con Tự Tạo</span>
+              <span class="hf-badge badge-${t.status.toLowerCase().replace('_', '-')}">${formatStatusVN(t.status)}</span>
+            </div>
+            <h4 style="font-weight:700; margin-bottom:6px;">${escapeHtml(t.title)}</h4>
+            <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:10px;">Người tạo: <strong style="color:#8e44ad;">${escapeHtml(t.creator)}</strong> -> Thực hiện: <strong>${escapeHtml(t.assignee)}</strong></p>
+            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border); padding-top:8px;">
+              <span>Dự án: ${escapeHtml(t.project || 'Cá nhân')}</span>
+              <span>Hạn: ${escapeHtml(t.due)}</span>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    html += `</div></div>`;
+  }
+
+  // SECTION 1: NỘI DUNG CẦN LÀM CÁ NHÂN
+  html += `
     <div style="margin-bottom:24px;">
       <h3 style="margin-bottom:12px; color:var(--primary);">
         Nội dung Cần làm Cá nhân (${escapeHtml(currentUser.name)})
@@ -1937,13 +2086,32 @@ function populateTaskModalDropdowns() {
 }
 
 function applyUIPermissionVisibility() {
-  const isPNAdmin = hasPermission('canManageUsers');
+  const isPNAdmin = checkIsAdmin(hfState.currentUser);
   const canDeleteTask = hasPermission('canDeleteTask');
 
   const adminNavElem = document.querySelectorAll('[data-route="teams"]');
   adminNavElem.forEach(el => {
     el.style.display = isPNAdmin ? 'flex' : 'none';
   });
+
+  document.querySelectorAll('.admin-only-filter').forEach(el => {
+    el.style.display = isPNAdmin ? 'inline-flex' : 'none';
+  });
+
+  const subSelect = document.getElementById('adminSubAccountFilterSelect');
+  if (subSelect && isPNAdmin) {
+    const currentVal = subSelect.value;
+    subSelect.innerHTML = '<option value="">Lọc theo Tài khoản Con...</option>';
+    (hfState.users || []).forEach(u => {
+      if (u.username !== 'pn' && u.id !== 'u-pn') {
+        const opt = document.createElement('option');
+        opt.value = u.name;
+        opt.textContent = `Tài khoản Con: ${u.name}`;
+        subSelect.appendChild(opt);
+      }
+    });
+    subSelect.value = currentVal;
+  }
 
   const drawerDeleteBtn = document.getElementById('drawerDeleteBtn');
   if (drawerDeleteBtn) {
@@ -2006,27 +2174,10 @@ function updateTopNavUserDisplay() {
 }
 
 function switchUserProfile(userId) {
-  const target = hfState.users.find(u => u.id === userId);
-  if (target) {
-    const currentUser = hfState.currentUser;
-    const isCurrentAdmin = currentUser && (currentUser.username === 'pn' || (currentUser.role && (currentUser.role.includes('Quản trị') || currentUser.role.includes('ADMIN'))));
-    const isTargetAdmin = target.username === 'pn' || (target.role && (target.role.includes('Quản trị') || target.role.includes('ADMIN')));
-
-    if (isTargetAdmin && !isCurrentAdmin) {
-      alert('Tài khoản của bạn không có quyền chuyển sang tài khoản Quản trị viên.');
-      return;
-    }
-
-    hfState.currentUser = target;
-    hfState.isLoggedIn = true;
-    saveHfState(true);
-    const gatewayOverlay = document.getElementById('pnTaskLoginGateway');
-    if (gatewayOverlay) {
-      gatewayOverlay.classList.remove('active');
-      gatewayOverlay.style.display = 'none';
-    }
-    renderAllViews();
-    showToast(`Đã chuyển tài khoản sang ${target.name} (${target.role}).`);
+  const currentUser = hfState.currentUser;
+  if (!currentUser || currentUser.id !== userId) {
+    alert('Tính năng chuyển đổi tài khoản trực tiếp đã bị khóa vì lý do bảo mật. Mỗi người dùng chỉ được phép truy cập tài khoản của chính mình. Vui lòng Đăng xuất nếu muốn đăng nhập tài khoản khác.');
+    return;
   }
 }
 
@@ -2140,6 +2291,7 @@ function renderTasks() {
   if (!container) return;
 
   container.innerHTML = '';
+  const isPNAdmin = checkIsAdmin(hfState.currentUser);
   let filtered = getVisibleTasks();
 
   const q = (document.getElementById('taskSearchInput')?.value || '').toLowerCase().trim();
@@ -2149,15 +2301,83 @@ function renderTasks() {
   else if (currentTaskFilter === 'upcoming') filtered = filtered.filter(t => t.due && !t.due.includes('14/08') && t.status !== 'DONE');
   else if (currentTaskFilter === 'overdue') filtered = filtered.filter(t => t.priority === 'URGENT' || (t.due && t.due.includes('14/08') && t.status !== 'DONE'));
   else if (currentTaskFilter === 'completed') filtered = filtered.filter(t => t.status === 'DONE');
+  else if (currentTaskFilter === 'adminAssigned') {
+    filtered = filtered.filter(t => {
+      const isCreatorAdmin = (t.creator === 'PN' || t.creator === 'pn' || (t.creator || '').includes('Quản trị'));
+      const isAssigneeSub = t.assignee && t.assignee !== 'PN' && t.assignee !== 'pn' && !(t.assignee || '').includes('Quản trị');
+      return isCreatorAdmin && isAssigneeSub;
+    });
+  }
+  else if (currentTaskFilter === 'personalAssigned') {
+    filtered = filtered.filter(t => {
+      const isCreatorSub = t.creator && t.creator !== 'PN' && t.creator !== 'pn' && !(t.creator || '').includes('Quản trị');
+      const isAssigneeSub = t.assignee && t.assignee !== 'PN' && t.assignee !== 'pn' && !(t.assignee || '').includes('Quản trị');
+      return isCreatorSub || isAssigneeSub;
+    });
+  }
+  else if (currentTaskFilter === 'subCreated') {
+    filtered = filtered.filter(t => {
+      const isCreatorSub = t.creator && t.creator !== 'PN' && t.creator !== 'pn' && !(t.creator || '').includes('Quản trị');
+      return isCreatorSub;
+    });
+  }
+  else if (currentTaskFilter.startsWith('subAccount_')) {
+    const selectedUser = currentTaskFilter.replace('subAccount_', '');
+    filtered = filtered.filter(t => t.assignee === selectedUser || t.creator === selectedUser);
+  }
 
-  let tableHTML = `
+  let tableHTML = '';
+
+  // Executive Overview Banner for Admin
+  if (isPNAdmin) {
+    const adminAssignedTasks = (hfState.tasks || []).filter(t => {
+      const isCreatorAdmin = (t.creator === 'PN' || t.creator === 'pn' || (t.creator || '').includes('Quản trị'));
+      const isAssigneeSub = t.assignee && t.assignee !== 'PN' && t.assignee !== 'pn' && !(t.assignee || '').includes('Quản trị');
+      return isCreatorAdmin && isAssigneeSub;
+    });
+
+    const personalAssignedTasks = (hfState.tasks || []).filter(t => {
+      const isCreatorSub = t.creator && t.creator !== 'PN' && t.creator !== 'pn' && !(t.creator || '').includes('Quản trị');
+      const isAssigneeSub = t.assignee && t.assignee !== 'PN' && t.assignee !== 'pn' && !(t.assignee || '').includes('Quản trị');
+      return isCreatorSub || isAssigneeSub;
+    });
+
+    const subCreatedTasks = (hfState.tasks || []).filter(t => {
+      const isCreatorSub = t.creator && t.creator !== 'PN' && t.creator !== 'pn' && !(t.creator || '').includes('Quản trị');
+      return isCreatorSub;
+    });
+
+    tableHTML += `
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:16px;">
+        <div class="hf-card" style="padding:12px; border-left:4px solid var(--primary); cursor:pointer; background:var(--bg-secondary);" onclick="filterTasksTab('adminAssigned')">
+          <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">📌 Task Admin Giao Con</div>
+          <div style="font-size:1.3rem; font-weight:700; color:var(--primary); margin-top:4px;">${adminAssignedTasks.length} Công việc</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Admin giao cho thành viên con</div>
+        </div>
+
+        <div class="hf-card" style="padding:12px; border-left:4px solid #e67e22; cursor:pointer; background:var(--bg-secondary);" onclick="filterTasksTab('personalAssigned')">
+          <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">👤 Task Cá Nhân Giao Nhau</div>
+          <div style="font-size:1.3rem; font-weight:700; color:#e67e22; margin-top:4px;">${personalAssignedTasks.length} Công việc</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Cá nhân giao việc lẫn nhau</div>
+        </div>
+
+        <div class="hf-card" style="padding:12px; border-left:4px solid #9b59b6; cursor:pointer; background:var(--bg-secondary);" onclick="filterTasksTab('subCreated')">
+          <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">📝 Task Con Tự Tạo</div>
+          <div style="font-size:1.3rem; font-weight:700; color:#9b59b6; margin-top:4px;">${subCreatedTasks.length} Công việc</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Tài khoản con tự khởi tạo</div>
+        </div>
+      </div>
+    `;
+  }
+
+  tableHTML += `
     <div class="misa-table-container">
       <table class="misa-table">
         <thead>
           <tr>
             <th style="width:36px;"></th>
             <th>Tên công việc</th>
-            <th>Người giao công việc (Admin/Quản lý)</th>
+            <th>Người giao (Admin / Tự tạo)</th>
             <th>Người thực hiện</th>
             <th>Dự án</th>
             <th>Độ ưu tiên</th>
@@ -2170,14 +2390,32 @@ function renderTasks() {
   `;
 
   if (filtered.length === 0) {
-    tableHTML += `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Không có công việc nào.</td></tr>`;
+    tableHTML += `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:20px;">Không có công việc nào thuộc tiêu chí lọc.</td></tr>`;
   } else {
     filtered.forEach(t => {
       const attachCount = (t.attachments || []).length;
+      const isCreatorAdmin = (t.creator === 'PN' || t.creator === 'pn' || (t.creator || '').includes('Quản trị'));
+      const isAssigneeAdmin = (t.assignee === 'PN' || t.assignee === 'pn' || (t.assignee || '').includes('Quản trị'));
+      
+      let originBadge = '';
+      if (isPNAdmin) {
+        if (isCreatorAdmin && !isAssigneeAdmin) {
+          originBadge = `<span class="hf-badge" style="background:rgba(52, 152, 219, 0.15); color:#2980b9; border:1px solid #3498db; font-size:0.7rem; margin-left:6px;">📌 Admin Giao Con</span>`;
+        } else if (!isCreatorAdmin && !isAssigneeAdmin && t.creator !== t.assignee) {
+          originBadge = `<span class="hf-badge" style="background:rgba(230, 126, 34, 0.15); color:#d35400; border:1px solid #e67e22; font-size:0.7rem; margin-left:6px;">👤 Cá Nhân Giao</span>`;
+        } else if (!isCreatorAdmin) {
+          originBadge = `<span class="hf-badge" style="background:rgba(155, 89, 182, 0.15); color:#8e44ad; border:1px solid #9b59b6; font-size:0.7rem; margin-left:6px;">📝 Con Tự Tạo</span>`;
+        } else {
+          originBadge = `<span class="hf-badge badge-done" style="font-size:0.7rem; margin-left:6px;">👑 Task Admin</span>`;
+        }
+      }
+
       tableHTML += `
         <tr onclick="openTaskDetailDrawer('${t.id}')" style="cursor:pointer;">
           <td><input type="checkbox" class="task-checkbox" ${t.status === 'DONE' ? 'checked' : ''} onclick="event.stopPropagation(); toggleTaskDone('${t.id}')"></td>
-          <td style="font-weight:600; ${t.status === 'DONE' ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">${escapeHtml(t.title)}</td>
+          <td style="font-weight:600; ${t.status === 'DONE' ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">
+            ${escapeHtml(t.title)} ${originBadge}
+          </td>
           <td><span style="font-weight:600; font-size:0.8rem; color:var(--primary);">${escapeHtml(t.creator||'Quản trị viên (Admin)')}</span></td>
           <td><span style="font-weight:600; font-size:0.8rem;">${escapeHtml(t.assignee||'PN')}</span></td>
           <td style="color:var(--text-secondary); font-size:0.8rem;">${escapeHtml(t.project||'Hệ thống PN Task')}</td>
@@ -2217,7 +2455,7 @@ function renderTeams() {
   const container = document.getElementById('teamsListContainer');
   if (!container) return;
 
-  const isPNAdmin = hasPermission('canManageUsers');
+  const isPNAdmin = checkIsAdmin(hfState.currentUser);
   if (!isPNAdmin) {
     container.innerHTML = `<div class="hf-card" style="text-align:center; padding:40px;">
       <h2 style="color:var(--danger);">Khu vực Giới hạn Access</h2>
@@ -2227,16 +2465,36 @@ function renderTeams() {
   }
 
   const pendingList = hfState.pendingRegistrations || [];
+  const allUsers = hfState.users || [];
+  const subAccounts = allUsers.filter(u => u.username !== 'pn' && u.id !== 'u-pn');
 
   let html = `<div class="hf-card" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <div>
-        <h3>Trung tâm Quản lý Tài khoản & Phân Quyền Quản trị viên</h3>
-        <p style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">Chỉ Quản trị viên mới có quyền phê duyệt, đổi vai trò, phân quyền và Xóa tài khoản:</p>
+        <h3>Trung tâm Quản lý & Giám sát Tài khoản Con (Sub-Accounts)</h3>
+        <p style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">Quyền Admin: Theo dõi thông tin, mật khẩu, thống kê công việc và quản lý phân quyền tất cả tài khoản thành viên con.</p>
       </div>
-      <button class="hf-btn hf-btn-primary" onclick="createNewUserAccount()">+ Tạo Tài khoản trực tiếp</button>
+      <button class="hf-btn hf-btn-primary" onclick="createNewUserAccount()">+ Tạo Tài khoản Con Mới</button>
     </div>
   </div>`;
+
+  // Summary Metrics Bar for Admin
+  html += `
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:16px;">
+      <div class="hf-card" style="padding:14px; border-left:4px solid var(--primary);">
+        <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Tổng Số Tài khoản Con</div>
+        <div style="font-size:1.4rem; font-weight:700; margin-top:4px;">${subAccounts.length} Tài khoản</div>
+      </div>
+      <div class="hf-card" style="padding:14px; border-left:4px solid var(--warning);">
+        <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Yêu cầu Đăng ký Cần Duyệt</div>
+        <div style="font-size:1.4rem; font-weight:700; color:var(--warning); margin-top:4px;">${pendingList.length} Yêu cầu</div>
+      </div>
+      <div class="hf-card" style="padding:14px; border-left:4px solid var(--success);">
+        <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Tổng số Task Thành viên</div>
+        <div style="font-size:1.4rem; font-weight:700; color:var(--success); margin-top:4px;">${(hfState.tasks || []).length} Công việc</div>
+      </div>
+    </div>
+  `;
 
   if (pendingList.length > 0) {
     html += `<div class="hf-card" style="margin-bottom:20px; border-color:var(--danger); background:rgba(168, 59, 59, 0.08);">
@@ -2273,29 +2531,31 @@ function renderTeams() {
     html += `</tbody></table></div></div>`;
   }
 
-  html += `<h3 style="margin-bottom:10px;">Quản lý Tài khoản & Phân quyền Chi tiết</h3>
+  html += `<h3 style="margin-bottom:10px;">Danh sách Tài khoản Con & Phân quyền Chi tiết</h3>
   <div class="misa-table-container"><table class="misa-table">
     <thead>
       <tr>
-        <th>Thành viên</th>
+        <th>Thành viên / Tài khoản Con</th>
         <th>Tên đăng nhập</th>
+        <th>Mật khẩu</th>
         <th>Vai trò</th>
-        <th>Quyền Xóa Task</th>
-        <th>Quyền Dự án</th>
-        <th>Quyền Quản lý User</th>
+        <th>Công việc</th>
         <th>Hành động Quản trị</th>
       </tr>
     </thead>
     <tbody>`;
 
-  (hfState.users || []).forEach(u => {
-    const p = u.permissions || {};
+  allUsers.forEach(u => {
     const isRootPN = u.username === 'pn' || u.id === 'u-pn';
+    const userTasks = (hfState.tasks || []).filter(t => t.assignee === u.name || t.assignee === u.username);
 
     html += `
       <tr>
-        <td style="font-weight:700;">${escapeHtml(u.name)}</td>
+        <td style="font-weight:700;">
+          ${escapeHtml(u.name)} ${isRootPN ? '<span class="hf-badge badge-done" style="margin-left:4px; font-size:0.7rem;">ADMIN ROOT</span>' : ''}
+        </td>
         <td><code>${escapeHtml(u.username)}</code></td>
+        <td><code>${escapeHtml(u.pass || '******')}</code></td>
         <td>
           ${!isRootPN ? `
             <select class="form-select" style="padding:4px 8px; font-size:0.775rem; width: auto;" onchange="changeUserRole('${u.id}', this.value)">
@@ -2307,14 +2567,12 @@ function renderTeams() {
             </select>
           ` : `<span class="hf-badge badge-done">${escapeHtml(u.role)}</span>`}
         </td>
-        <td>${p.canDeleteTask ? 'Có' : 'Không'}</td>
-        <td>${p.canCreateProject ? 'Có' : 'Không'}</td>
-        <td>${p.canManageUsers ? 'Có' : 'Không'}</td>
+        <td><span class="hf-badge badge-progress">${userTasks.length} Task</span></td>
         <td>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <button onclick="openEditUserModal('${u.id}')" class="hf-btn hf-btn-primary" style="padding:6px 12px; font-size:0.8rem;">Sửa Thông tin</button>
-            <button onclick="toggleUserPermission('${u.id}', 'canDeleteTask')" class="hf-btn hf-btn-secondary" style="padding:6px 12px; font-size:0.8rem;">Đổi quyền Xóa Task</button>
-            ${!isRootPN ? `<button onclick="deleteUserAccount('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:6px 12px; font-size:0.8rem; color:var(--danger);">Xóa Tài khoản</button>` : '<span style="color:var(--primary); font-weight:700; font-size:0.8rem; padding:4px 8px;">Quản trị viên Gốc</span>'}
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button onclick="openSubAccountDetailsModal('${u.id}')" class="hf-btn hf-btn-primary" style="padding:4px 8px; font-size:0.75rem;">👁️ Xem Chi tiết</button>
+            <button onclick="openEditUserModal('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:4px 8px; font-size:0.75rem;">Sửa</button>
+            ${!isRootPN ? `<button onclick="deleteUserAccount('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" title="Xóa tài khoản con">Xóa</button>` : ''}
           </div>
         </td>
       </tr>
@@ -2336,6 +2594,127 @@ function renderTeams() {
 
   html += `</div></div>`;
   container.innerHTML = html;
+}
+
+function openSubAccountDetailsModal(userId) {
+  const isPNAdmin = checkIsAdmin(hfState.currentUser);
+  if (!isPNAdmin) {
+    alert('Chỉ tài khoản Quản trị viên mới có quyền xem thông tin chi tiết tài khoản con.');
+    return;
+  }
+
+  const targetUser = (hfState.users || []).find(u => u.id === userId);
+  if (!targetUser) {
+    alert('Không tìm thấy tài khoản con.');
+    return;
+  }
+
+  const userTasks = (hfState.tasks || []).filter(t => 
+    t.assignee === targetUser.name || 
+    t.assignee === targetUser.username ||
+    t.creator === targetUser.name ||
+    t.creator === targetUser.username
+  );
+
+  const completedTasks = userTasks.filter(t => t.status === 'DONE').length;
+  const inProgressTasks = userTasks.filter(t => t.status === 'IN_PROGRESS').length;
+  const todoTasks = userTasks.filter(t => t.status === 'TODO').length;
+
+  const modal = document.getElementById('viewSubAccountModalOverlay');
+  const bodyElem = document.getElementById('viewSubAccountModalBody');
+  const titleElem = document.getElementById('viewSubAccountModalTitle');
+
+  if (titleElem) titleElem.textContent = `Chi tiết Tài khoản Con: ${targetUser.name}`;
+
+  if (bodyElem) {
+    let taskRowsHtml = '';
+    if (userTasks.length === 0) {
+      taskRowsHtml = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">Tài khoản con này chưa có công việc nào.</td></tr>`;
+    } else {
+      userTasks.forEach(t => {
+        let statusBadge = `<span class="hf-badge badge-todo">Cần làm</span>`;
+        if (t.status === 'IN_PROGRESS') statusBadge = `<span class="hf-badge badge-progress">Đang làm</span>`;
+        if (t.status === 'DONE') statusBadge = `<span class="hf-badge badge-done">Hoàn thành</span>`;
+        if (t.status === 'IN_REVIEW') statusBadge = `<span class="hf-badge badge-review">Đang duyệt</span>`;
+
+        taskRowsHtml += `
+          <tr>
+            <td style="font-weight:600;">${escapeHtml(t.title)}</td>
+            <td>${escapeHtml(t.project || 'Cá nhân')}</td>
+            <td>${statusBadge}</td>
+            <td style="font-size:0.8rem; color:var(--text-secondary);">${escapeHtml(t.due || '-')}</td>
+          </tr>
+        `;
+      });
+    }
+
+    bodyElem.innerHTML = `
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div style="background:var(--bg-secondary); padding:12px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Hồ sơ Tài khoản Con</div>
+          <div style="font-size:1.05rem; font-weight:700; margin-top:4px;">${escapeHtml(targetUser.name)}</div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">Username: <code style="color:var(--primary); font-weight:600;">${escapeHtml(targetUser.username)}</code></div>
+          <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:2px;">Password: <code style="color:var(--danger); font-weight:600;">${escapeHtml(targetUser.pass)}</code></div>
+          <div style="font-size:0.85rem; color:var(--primary); font-weight:600; margin-top:4px;">Vai trò: ${escapeHtml(targetUser.role)}</div>
+        </div>
+
+        <div style="background:var(--bg-secondary); padding:12px; border-radius:8px; border:1px solid var(--border);">
+          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Thống kê Tiến độ</div>
+          <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.85rem;">
+            <span>Tổng số Task:</span>
+            <strong>${userTasks.length}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.85rem; color:var(--success);">
+            <span>Đã hoàn thành:</span>
+            <strong>${completedTasks}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.85rem; color:var(--warning);">
+            <span>Đang thực hiện:</span>
+            <strong>${inProgressTasks}</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:0.85rem; color:var(--text-muted);">
+            <span>Cần làm:</span>
+            <strong>${todoTasks}</strong>
+          </div>
+        </div>
+      </div>
+
+      <h4 style="margin-bottom:8px; font-size:0.9rem;">Danh sách Công việc của Tài khoản Con này</h4>
+      <div class="misa-table-container" style="max-height:200px; overflow-y:auto;">
+        <table class="misa-table" style="width:100%; font-size:0.8rem;">
+          <thead>
+            <tr>
+              <th>Tên công việc</th>
+              <th>Dự án</th>
+              <th>Trạng thái</th>
+              <th>Hạn chót</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${taskRowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="hf-btn hf-btn-primary" onclick="closeSubAccountDetailsModal(); openEditUserModal('${targetUser.id}');" style="font-size:0.8rem;">Chỉnh sửa Thông tin & Mật khẩu</button>
+        <button class="hf-btn hf-btn-secondary" onclick="closeSubAccountDetailsModal()" style="font-size:0.8rem;">Đóng Window</button>
+      </div>
+    `;
+  }
+
+  if (modal) {
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+  }
+}
+
+function closeSubAccountDetailsModal() {
+  const modal = document.getElementById('viewSubAccountModalOverlay');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
 }
 
 function openTaskDetailDrawer(taskId) {
