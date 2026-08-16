@@ -97,8 +97,10 @@ function initModals() {
   loginBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (authModal) {
-        if (authTitle) authTitle.textContent = 'Đăng nhập vào Fiine';
+      if (typeof openLoginGateway === 'function') {
+        openLoginGateway('client', 'login');
+      } else if (authModal) {
+        if (authTitle) authTitle.textContent = 'Đăng nhập vào Hệ thống';
         authModal.classList.add('active');
       }
     });
@@ -107,8 +109,10 @@ function initModals() {
   registerBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (authModal) {
-        if (authTitle) authTitle.textContent = 'Đăng ký tài khoản Fiine';
+      if (typeof openLoginGateway === 'function') {
+        openLoginGateway('client', 'register');
+      } else if (authModal) {
+        if (authTitle) authTitle.textContent = 'Đăng ký tài khoản Hệ thống';
         authModal.classList.add('active');
       }
     });

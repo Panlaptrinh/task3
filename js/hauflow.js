@@ -196,6 +196,15 @@ function getInitialState() {
       if (!parsed.studyDocs) {
         parsed.studyDocs = defaultPnTaskState.studyDocs;
       }
+      if (!parsed.users || parsed.users.length === 0) {
+        parsed.users = JSON.parse(JSON.stringify(defaultPnTaskState.users));
+      } else {
+        defaultPnTaskState.users.forEach(defU => {
+          if (!parsed.users.some(u => u.username && u.username.toLowerCase() === defU.username.toLowerCase())) {
+            parsed.users.push(JSON.parse(JSON.stringify(defU)));
+          }
+        });
+      }
       return parsed;
     } catch (e) {}
   }
@@ -786,20 +795,33 @@ function checkDedicatedPortalUrl() {
   }
 }
 
+function openLoginGateway(mode = 'client', tab = 'login') {
+  setLoginPortalMode(mode);
+  switchLoginGatewayTab(tab);
+  const gatewayOverlay = document.getElementById('pnTaskLoginGateway');
+  if (gatewayOverlay) {
+    gatewayOverlay.classList.add('active');
+    gatewayOverlay.style.display = 'flex';
+  }
+}
+
 function submitClientLogin() {
   const userInput = document.getElementById('loginUsernameInput')?.value.trim().toLowerCase();
   const passInput = document.getElementById('loginPasswordInput')?.value.trim();
 
   if (!userInput || !passInput) {
-    alert('Vui lòng nhập đầy đủ Tên đăng nhập và Mật khẩu.');
+    alert('Vui lòng nhập đầy đủ Tên đăng nhập / Email và Mật khẩu.');
     return;
   }
 
-  const user = (hfState.users || []).find(u => u.username.toLowerCase() === userInput && u.pass === passInput);
+  const user = (hfState.users || []).find(u => 
+    ((u.username && u.username.toLowerCase() === userInput) || (u.email && u.email.toLowerCase() === userInput)) && 
+    u.pass === passInput
+  );
 
   if (user) {
     if (user.status === 'PENDING_APPROVAL') {
-      alert('Tài khoản của bạn đang chờ Quản trị viên phê duyệt.');
+      alert('Tài khoản của bạn đang chờ Quản trị viên (Admin PN) phê duyệt.');
       return;
     }
 
@@ -818,13 +840,17 @@ function submitClientLogin() {
     return;
   }
 
-  const pending = (hfState.pendingRegistrations || []).find(p => p.username.toLowerCase() === userInput && p.pass === passInput);
+  const pending = (hfState.pendingRegistrations || []).find(p => 
+    ((p.username && p.username.toLowerCase() === userInput) || (p.email && p.email.toLowerCase() === userInput)) &&
+    p.pass === passInput
+  );
+
   if (pending) {
-    alert('Tài khoản này đang chờ Quản trị viên phê duyệt.');
+    alert('Tài khoản này đã gửi yêu cầu đăng ký thành công và đang chờ Quản trị viên (Admin PN) phê duyệt.');
     return;
   }
 
-  alert('Tên đăng nhập hoặc Mật khẩu không chính xác. Vui lòng thử lại.');
+  alert('Tên đăng nhập / Email hoặc Mật khẩu không chính xác. Vui lòng thử lại.');
 }
 
 function submitAdminLogin() {
@@ -837,22 +863,17 @@ function loginPnTaskUser(adminCode, optionalPassword) {
   const pass = (optionalPassword || '').trim();
 
   if (!code) {
-    alert('Vui lòng nhập Mã Quản trị viên.');
+    alert('Vui lòng nhập Mã Quản trị viên hoặc Tên đăng nhập Admin.');
     return;
   }
 
-  const user = hfState.users.find(u => 
+  const user = (hfState.users || []).find(u => 
     u.username.toLowerCase() === code || 
     u.pass === code || 
     (pass && u.username.toLowerCase() === code && u.pass === pass)
   );
 
   if (user) {
-    if (user.status === 'PENDING_APPROVAL') {
-      alert('Tài khoản của bạn đang chờ Admin PN phê duyệt.');
-      return;
-    }
-
     hfState.isLoggedIn = true;
     hfState.currentUser = user;
     saveHfState(true);
@@ -868,13 +889,15 @@ function loginPnTaskUser(adminCode, optionalPassword) {
     return;
   }
 
-  const pending = (hfState.pendingRegistrations || []).find(p => p.username.toLowerCase() === code || p.pass === code);
-  if (pending) {
-    alert('Mã tài khoản này đang chờ Admin phê duyệt.');
-    return;
-  }
+  alert('Mã Quản trị viên / Tên đăng nhập không chính xác. Vui lòng thử lại.');
+}
 
-  alert('Mã Quản trị viên không chính xác. Vui lòng thử lại.');
+function submitGuestRegistration() {
+  const fullName = document.getElementById('regFullNameInput')?.value;
+  const username = document.getElementById('regUsernameInput')?.value;
+  const password = document.getElementById('regPasswordInput')?.value;
+  const email = document.getElementById('regEmailInput')?.value;
+  registerGuestAccount(fullName, username, password, email);
 }
 
 function registerGuestAccount(fullName, username, password, email) {
@@ -888,11 +911,14 @@ function registerGuestAccount(fullName, username, password, email) {
     return;
   }
 
-  const existsUser = hfState.users.find(u => u.username.toLowerCase() === uInput);
-  const existsPending = (hfState.pendingRegistrations || []).find(p => p.username.toLowerCase() === uInput);
+  if (!hfState.users) hfState.users = [];
+  if (!hfState.pendingRegistrations) hfState.pendingRegistrations = [];
+
+  const existsUser = hfState.users.find(u => u.username.toLowerCase() === uInput || (mailInput && u.email && u.email.toLowerCase() === mailInput.toLowerCase()));
+  const existsPending = hfState.pendingRegistrations.find(p => p.username.toLowerCase() === uInput || (mailInput && p.email && p.email.toLowerCase() === mailInput.toLowerCase()));
 
   if (existsUser || existsPending) {
-    alert('Tên đăng nhập này đã tồn tại.');
+    alert('Tên đăng nhập hoặc Email này đã tồn tại trên hệ thống.');
     return;
   }
 
@@ -906,12 +932,11 @@ function registerGuestAccount(fullName, username, password, email) {
     status: 'PENDING_APPROVAL'
   };
 
-  if (!hfState.pendingRegistrations) hfState.pendingRegistrations = [];
   hfState.pendingRegistrations.unshift(reqObj);
   addAuditLog(`Tài khoản mới [${name}] vừa gửi yêu cầu đăng ký`);
   saveHfState(true);
 
-  alert('Đã gửi yêu cầu đăng ký thành công. Bạn có thể đăng nhập ngay sau khi tài khoản được phê duyệt.');
+  alert('Đã gửi yêu cầu đăng ký thành công! Tài khoản của bạn đang chờ Quản trị viên (Admin PN) phê duyệt trước khi có thể đăng nhập.');
   switchLoginGatewayTab('login');
   renderAllViews();
 }
@@ -3045,6 +3070,20 @@ function resetWorkspaceData() {
 function initGlobalEvents() {
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); toggleCommandPalette(); }
+  });
+
+  document.querySelectorAll('.btn-open-login').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLoginGateway('client', 'login');
+    });
+  });
+
+  document.querySelectorAll('.btn-open-register').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openLoginGateway('client', 'register');
+    });
   });
 }
 

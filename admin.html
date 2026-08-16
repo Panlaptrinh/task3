@@ -471,25 +471,25 @@
       <div id="registerFormContainer" style="display: none;">
         <div class="form-group">
           <label class="form-label">Họ và Tên thành viên / Khách hàng</label>
-          <input type="text" id="regFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A" value="">
+          <input type="text" id="regFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A" value="" onkeydown="if(event.key==='Enter') submitGuestRegistration()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Tên đăng nhập mong muốn</label>
-          <input type="text" id="regUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana" value="">
+          <input type="text" id="regUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana" value="" onkeydown="if(event.key==='Enter') submitGuestRegistration()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Mật khẩu khởi tạo</label>
-          <input type="password" id="regPasswordInput" class="form-input" placeholder="Tạo mật khẩu cá nhân..." value="">
+          <input type="password" id="regPasswordInput" class="form-input" placeholder="Tạo mật khẩu cá nhân..." value="" onkeydown="if(event.key==='Enter') submitGuestRegistration()">
         </div>
 
         <div class="form-group">
           <label class="form-label">Email liên hệ</label>
-          <input type="email" id="regEmailInput" class="form-input" placeholder="Ví dụ: nva@gmail.com" value="">
+          <input type="email" id="regEmailInput" class="form-input" placeholder="Ví dụ: nva@gmail.com" value="" onkeydown="if(event.key==='Enter') submitGuestRegistration()">
         </div>
 
-        <button class="hf-btn hf-btn-primary" onclick="registerGuestAccount(document.getElementById('regFullNameInput').value, document.getElementById('regUsernameInput').value, document.getElementById('regPasswordInput').value, document.getElementById('regEmailInput').value)" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem; background: var(--success); border-color: var(--success);">Gửi Yêu cầu Đăng ký</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitGuestRegistration()" style="width: 100%; padding: 12px; margin-top: 8px; font-size: 0.95rem; background: var(--success); border-color: var(--success);">Gửi Yêu cầu Đăng ký</button>
 
         <p style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:10px;">
           Yêu cầu sẽ được gửi tới Quản trị viên để phê duyệt cấp quyền sử dụng hệ thống.
