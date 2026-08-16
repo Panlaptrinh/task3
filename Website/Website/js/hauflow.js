@@ -206,15 +206,18 @@ function getInitialState() {
 }
 
 /* ==========================================================================
-   REALTIME CLOUD SYNCHRONIZATION ENGINE (FIREBASE RTDB)
+   REALTIME CLOUD & CROSS-DEVICE SERVER SYNCHRONIZATION ENGINE
    ========================================================================== */
 let firebaseApp = null;
 let firebaseDb = null;
 let isCloudConnected = false;
+let isServerConnected = false;
 let isSyncingToCloud = false;
+let isSyncingToServer = false;
+let serverSyncInterval = null;
 
 const defaultFirebaseConfig = {
-  databaseURL: "https://pntask-2026-default-rtdb.asia-southeast1.firebasedatabase.app"
+  databaseURL: "https://task-293-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 function initRealtimeCloudSync() {
@@ -232,10 +235,10 @@ function initRealtimeCloudSync() {
       connectedRef.on("value", (snap) => {
         if (snap.val() === true) {
           isCloudConnected = true;
-          updateCloudSyncStatusBadge(true);
+          updateCloudSyncStatusBadge();
         } else {
           isCloudConnected = false;
-          updateCloudSyncStatusBadge(false);
+          updateCloudSyncStatusBadge();
         }
       });
 
@@ -243,35 +246,120 @@ function initRealtimeCloudSync() {
       cloudStateRef.on("value", (snapshot) => {
         const remoteData = snapshot.val();
         if (remoteData && typeof remoteData === 'object') {
-          if (!isSyncingToCloud) {
+          const remoteState = remoteData.state || remoteData;
+          const remoteUpdated = remoteData.updatedAt || remoteState._lastUpdated || 0;
+          const localUpdated = hfState._lastUpdated || 0;
+
+          if (!isSyncingToCloud && remoteUpdated > localUpdated + 100) {
             const localUser = hfState ? hfState.currentUser : null;
-            hfState = remoteData;
+            hfState = remoteState;
+            hfState._lastUpdated = remoteUpdated;
             if (localUser) {
               const matchingUser = (hfState.users || []).find(u => u.id === localUser.id);
               if (matchingUser) hfState.currentUser = matchingUser;
             }
-            saveHfState(false);
+            saveHfStateLocallyOnly();
             renderAllViews();
+            showToast('🟢 Đã đồng bộ thời gian thực từ Đám mây!');
           }
         }
+      }, (err) => {
+        console.warn("Cloud Sync Notice:", err);
       });
     } else {
-      updateCloudSyncStatusBadge(false);
+      updateCloudSyncStatusBadge();
     }
   } catch (err) {
     console.warn("Cloud Sync Init Exception:", err);
-    updateCloudSyncStatusBadge(false);
+    updateCloudSyncStatusBadge();
   }
+}
+
+function initServerSync() {
+  fetchServerState(true);
+  if (serverSyncInterval) clearInterval(serverSyncInterval);
+  serverSyncInterval = setInterval(() => {
+    fetchServerState(false);
+  }, 2000);
+}
+
+function fetchServerState(isInitial = false) {
+  fetch('/api/state')
+    .then(res => {
+      if (!res.ok) throw new Error('Server API unavailable');
+      return res.json();
+    })
+    .then(data => {
+      isServerConnected = true;
+      updateCloudSyncStatusBadge();
+
+      if (data && data.state && data.updatedAt) {
+        const localUpdated = hfState._lastUpdated || 0;
+        if (data.updatedAt > localUpdated + 100) {
+          const localUser = hfState ? hfState.currentUser : null;
+          hfState = data.state;
+          hfState._lastUpdated = data.updatedAt;
+
+          if (localUser) {
+            const matchingUser = (hfState.users || []).find(u => u.id === localUser.id);
+            if (matchingUser) hfState.currentUser = matchingUser;
+          }
+
+          saveHfStateLocallyOnly();
+          renderAllViews();
+
+          if (!isInitial) {
+            showToast('🟢 Đã đồng bộ dữ liệu mới nhất từ thiết bị khác!');
+          }
+        }
+      }
+    })
+    .catch(() => {
+      isServerConnected = false;
+      updateCloudSyncStatusBadge();
+    });
+}
+
+function pushStateToServer() {
+  if (isSyncingToServer) return;
+  isSyncingToServer = true;
+
+  const payload = JSON.stringify({
+    code: hfState.activeWorkspaceCode || 'PNTASK-2026',
+    updatedAt: hfState._lastUpdated || Date.now(),
+    state: hfState
+  });
+
+  fetch('/api/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: payload
+  })
+  .then(res => res.json())
+  .then(() => {
+    isSyncingToServer = false;
+    isServerConnected = true;
+    updateCloudSyncStatusBadge();
+  })
+  .catch(() => {
+    isSyncingToServer = false;
+    isServerConnected = false;
+    updateCloudSyncStatusBadge();
+  });
 }
 
 function pushStateToCloud() {
   if (firebaseDb && isCloudConnected) {
     try {
       isSyncingToCloud = true;
-      firebaseDb.ref("pnTaskWorkspaceState").set(hfState, (err) => {
+      const cloudPayload = {
+        updatedAt: hfState._lastUpdated || Date.now(),
+        state: hfState
+      };
+      firebaseDb.ref("pnTaskWorkspaceState").set(cloudPayload, (err) => {
         isSyncingToCloud = false;
         if (!err) {
-          updateCloudSyncStatusBadge(true);
+          updateCloudSyncStatusBadge();
         }
       });
     } catch (e) {
@@ -280,45 +368,70 @@ function pushStateToCloud() {
   }
 }
 
-function updateCloudSyncStatusBadge(isConnected) {
+function updateCloudSyncStatusBadge() {
   const badgeElem = document.getElementById('cloudSyncStatusBadge');
   const textElem = document.getElementById('settingsCloudSyncStatusText');
+
+  const isConnected = isServerConnected || isCloudConnected;
+  let statusMsg = '🟢 Đã đồng bộ Đa thiết bị';
+  if (isServerConnected && isCloudConnected) {
+    statusMsg = '🟢 Máy chủ & Đám mây';
+  } else if (isServerConnected) {
+    statusMsg = '🟢 Máy chủ Nội bộ (LAN)';
+  } else if (isCloudConnected) {
+    statusMsg = '🟢 Đám mây Google';
+  } else {
+    statusMsg = '🟡 Đang lưu Cục bộ';
+  }
+
   if (badgeElem) {
     if (isConnected) {
       badgeElem.style.background = 'rgba(46, 204, 113, 0.15)';
       badgeElem.style.color = '#2ecc71';
       badgeElem.style.border = '1px solid rgba(46, 204, 113, 0.4)';
-      badgeElem.innerHTML = '🟢 Đã kết nối Đám mây';
+      badgeElem.innerHTML = statusMsg;
     } else {
       badgeElem.style.background = 'rgba(241, 196, 15, 0.15)';
       badgeElem.style.color = '#f1c40f';
       badgeElem.style.border = '1px solid rgba(241, 196, 15, 0.4)';
-      badgeElem.innerHTML = '🟡 Đang lưu Cục bộ';
+      badgeElem.innerHTML = statusMsg;
     }
   }
 
   if (textElem) {
-    textElem.innerHTML = isConnected ? '🟢 Đã kết nối Đám mây Google' : '🟡 Đang ở chế độ Cục bộ';
+    textElem.innerHTML = isConnected ? `🟢 Đã kết nối Đồng bộ (${statusMsg})` : '🟡 Đang ở chế độ Cục bộ (Trình duyệt)';
     textElem.style.color = isConnected ? '#2ecc71' : '#f1c40f';
   }
 }
 
 function forceManualCloudSync() {
-  pushStateToCloud();
-  showToast('Đã đồng bộ công việc lên Đám mây thành công!');
+  hfState._lastUpdated = Date.now();
+  saveHfState(true);
+  fetchServerState(false);
+  showToast('⚡ Đã kích hoạt đồng bộ dữ liệu ngay lập tức tới tất cả thiết bị!');
 }
 
-function saveHfState(broadcast = true) {
+function saveHfStateLocallyOnly() {
   recomputeAllMetrics();
   const code = hfState.activeWorkspaceCode || 'PNTASK-2026';
   localStorage.setItem('pntask_active_ws_code', code);
   localStorage.setItem(getStorageKey(code), JSON.stringify(hfState));
+}
+
+function saveHfState(broadcast = true) {
+  hfState._lastUpdated = Date.now();
+  saveHfStateLocallyOnly();
+
+  const code = hfState.activeWorkspaceCode || 'PNTASK-2026';
 
   if (broadcast && syncChannel) {
-    syncChannel.postMessage({ type: 'SYNC_STATE', code: code, state: hfState });
+    try {
+      syncChannel.postMessage({ type: 'SYNC_STATE', code: code, state: hfState, updatedAt: hfState._lastUpdated });
+    } catch (e) {}
   }
 
   if (broadcast) {
+    pushStateToServer();
     pushStateToCloud();
   }
 }
@@ -2038,6 +2151,7 @@ function initAutoSyncEngine() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initAutoSyncEngine();
+  initServerSync();
   initRealtimeCloudSync();
   applyThemeAndAccent();
   initRouting();

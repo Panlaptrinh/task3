@@ -389,9 +389,9 @@
 
             <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
             <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
-              <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Firebase Realtime Cloud Sync)</h3>
+              <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Đồng bộ Đa thiết bị cho GitHub Pages)</h3>
               <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
-                Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase.
+                Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase Realtime Database.
               </p>
               
               <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
@@ -399,7 +399,18 @@
                   <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
                   <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
                 </div>
-                <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Đám mây Ngay</button>
+                <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Ngay</button>
+              </div>
+
+              <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+                <label class="form-label" style="font-weight:700;">Cấu hình Firebase Realtime Database (Để đồng bộ trên GitHub Pages):</label>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                  <input type="text" id="customFirebaseUrlInput" class="form-input" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app" style="flex:1;">
+                  <button class="hf-btn hf-btn-secondary" onclick="saveCustomFirebaseUrl()">Lưu URL Cloud</button>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+                  💡 <strong>Hướng dẫn Đăng GitHub Pages:</strong> Khi đăng ứng dụng lên GitHub Pages, bạn tạo 1 Realtime Database miễn phí từ Firebase Console và dán URL vào đây để tất cả các thiết bị tự động đồng bộ trực tuyến qua mạng Internet.
+                </p>
               </div>
             </div>
 
