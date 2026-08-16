@@ -199,11 +199,17 @@ function getInitialState() {
       if (!parsed.users || parsed.users.length === 0) {
         parsed.users = JSON.parse(JSON.stringify(defaultPnTaskState.users));
       } else {
-        defaultPnTaskState.users.forEach(defU => {
-          if (!parsed.users.some(u => u.username && u.username.toLowerCase() === defU.username.toLowerCase())) {
-            parsed.users.push(JSON.parse(JSON.stringify(defU)));
-          }
-        });
+        // Guarantee admin 'pn' is always present so admin access is never lost
+        const hasAdmin = parsed.users.some(u => u.username && u.username.toLowerCase() === 'pn');
+        if (!hasAdmin) {
+          const adminDef = defaultPnTaskState.users.find(u => u.username === 'pn');
+          if (adminDef) parsed.users.unshift(JSON.parse(JSON.stringify(adminDef)));
+        }
+      }
+      if (!parsed.teams) {
+        parsed.teams = [
+          { id: 'team-default', name: 'Đội Nhóm Chung', code: 'PNTASK-TEAM', createdBy: 'pn', members: ['pn'] }
+        ];
       }
       return parsed;
     } catch (e) {}
@@ -211,6 +217,11 @@ function getInitialState() {
   const initState = JSON.parse(JSON.stringify(defaultPnTaskState));
   initState.isLoggedIn = false;
   initState.currentUser = null;
+  if (!initState.teams) {
+    initState.teams = [
+      { id: 'team-default', name: 'Đội Nhóm Chung', code: 'PNTASK-TEAM', createdBy: 'pn', members: ['pn'] }
+    ];
+  }
   return initState;
 }
 
@@ -229,11 +240,35 @@ const defaultFirebaseConfig = {
   databaseURL: "https://task-293-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
+function getFirebaseConfig() {
+  const customUrl = localStorage.getItem('pntask_firebase_db_url');
+  if (customUrl && customUrl.trim()) {
+    return { databaseURL: customUrl.trim() };
+  }
+  return defaultFirebaseConfig;
+}
+
+function saveCustomFirebaseUrl() {
+  const input = document.getElementById('customFirebaseUrlInput');
+  const url = input ? input.value.trim() : '';
+  if (url) {
+    localStorage.setItem('pntask_firebase_db_url', url);
+    showToast('Đã lưu URL Firebase Cloud! Đang khởi động lại đồng bộ...');
+  } else {
+    localStorage.removeItem('pntask_firebase_db_url');
+    showToast('Đã khôi phục về URL mặc định.');
+  }
+  setTimeout(() => {
+    window.location.reload();
+  }, 1000);
+}
+
 function initRealtimeCloudSync() {
   try {
     if (typeof firebase !== 'undefined') {
+      const config = getFirebaseConfig();
       if (!firebase.apps.length) {
-        firebaseApp = firebase.initializeApp(defaultFirebaseConfig);
+        firebaseApp = firebase.initializeApp(config);
       } else {
         firebaseApp = firebase.app();
       }
@@ -498,29 +533,60 @@ function getVisibleTasks() {
   const user = hfState.currentUser;
   if (!user) return [];
 
+  // Admin account sees all tasks in the system
   if (checkIsAdmin(user)) {
     return hfState.tasks || [];
   }
 
+  // Check if current user has joined a team via Team Code
+  const userTeamCode = (user.teamCode || '').trim().toUpperCase();
+  const joinedTeams = user.joinedTeams || (userTeamCode ? [userTeamCode] : []);
+
+  const isMemberOfAnyTeam = (hfState.teams || []).some(t => {
+    const tCode = (t.code || '').trim().toUpperCase();
+    const isJoinedByCode = tCode && joinedTeams.includes(tCode);
+    const isMemberInList = t.members && (
+      t.members.includes(user.username) || 
+      t.members.includes(user.id) || 
+      t.members.includes(user.name)
+    );
+    return isJoinedByCode || isMemberInList;
+  });
+
   return (hfState.tasks || []).filter(t => {
     const assignee = (t.assignee || '').trim().toLowerCase();
-    const isGroupTask = assignee === 'tất cả' || assignee === 'cả nhóm' || assignee === 'all' || assignee === 'nhóm' || assignee === 'group';
+    const creator = (t.creator || '').trim().toLowerCase();
+    const uName = (user.name || '').trim().toLowerCase();
+    const uUsername = (user.username || '').trim().toLowerCase();
 
-    const isMyAssignedTask = (t.assignee === user.name || t.assignee === user.username);
-    const isMyCreatedTask = (t.creator === user.name || t.creator === user.username);
+    const isMyAssignedTask = (assignee === uName || assignee === uUsername);
+    const isMyCreatedTask = (creator === uName || creator === uUsername);
 
-    return isGroupTask || isMyAssignedTask || isMyCreatedTask;
+    // Personal tasks assigned to or created by this user are always visible
+    if (isMyAssignedTask || isMyCreatedTask) return true;
+
+    // Group / team tasks are ONLY visible if user has joined a team using a Team Code
+    if (isMemberOfAnyTeam) {
+      const taskTeamCode = (t.teamCode || '').trim().toUpperCase();
+      if (taskTeamCode && joinedTeams.includes(taskTeamCode)) return true;
+
+      const isGroupTask = assignee === 'tất cả' || assignee === 'cả nhóm' || assignee === 'all' || assignee === 'nhóm' || assignee === 'group';
+      if (isGroupTask) return true;
+    }
+
+    return false;
   });
 }
 
 /* ==========================================================================
-   DYNAMIC FAST-SWITCH USER MODAL
+   DYNAMIC FAST-SWITCH USER MODAL (ADMIN ONLY SWITCHING)
    ========================================================================== */
 function renderFastSwitchModal() {
   const container = document.getElementById('fastSwitchUserListContainer');
   if (!container) return;
 
   const currentUser = hfState.currentUser;
+  const isPNAdmin = checkIsAdmin(currentUser);
 
   const avElem = document.getElementById('dropdownCurrentAvatar');
   const nameElem = document.getElementById('dropdownCurrentName');
@@ -538,11 +604,42 @@ function renderFastSwitchModal() {
 
   container.innerHTML = '';
 
-  // Render security isolation notice and direct logout button
-  const securityNotice = document.createElement('div');
-  securityNotice.style.cssText = 'font-size: 0.82rem; color: var(--text-secondary); background: var(--bg-secondary); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 12px; line-height: 1.4; border: 1px solid var(--border);';
-  securityNotice.innerHTML = '🔒 <strong>Bảo mật Cá nhân Đã Bật</strong><br>Mỗi người dùng chỉ được phép truy cập tài khoản của chính mình. Tính năng chuyển đổi tài khoản trực tiếp đã bị khóa.';
-  container.appendChild(securityNotice);
+  if (isPNAdmin) {
+    // Admin Mode: Render sub-accounts list and fast switch buttons
+    const titleHeader = document.createElement('div');
+    titleHeader.style.cssText = 'font-size: 0.82rem; font-weight: 700; color: var(--primary); margin-bottom: 8px; text-transform: uppercase;';
+    titleHeader.innerHTML = '👑 Chuyển đổi Tài khoản Con (Dành riêng Admin)';
+    container.appendChild(titleHeader);
+
+    const userListDiv = document.createElement('div');
+    userListDiv.style.cssText = 'max-height: 220px; overflow-y: auto; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;';
+
+    (hfState.users || []).forEach(u => {
+      const isCurrent = currentUser && u.id === currentUser.id;
+      const userItem = document.createElement('div');
+      userItem.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid ${isCurrent ? 'var(--primary)' : 'var(--border)'}; font-size: 0.82rem;`;
+
+      userItem.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary-alpha); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.75rem;">${escapeHtml(u.avatar || u.name.charAt(0))}</div>
+          <div>
+            <div style="font-weight: 600;">${escapeHtml(u.name)} ${isCurrent ? '<span style="color:var(--success); font-size:0.7rem;">(Hiện tại)</span>' : ''}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${escapeHtml(u.role)}</div>
+          </div>
+        </div>
+        ${!isCurrent ? `<button class="hf-btn hf-btn-primary" style="padding: 3px 8px; font-size: 0.72rem;" onclick="switchUserProfile('${u.id}')">🔄 Chuyển sang</button>` : ''}
+      `;
+      userListDiv.appendChild(userItem);
+    });
+
+    container.appendChild(userListDiv);
+  } else {
+    // Non-Admin Mode: Security notice locking account switching
+    const securityNotice = document.createElement('div');
+    securityNotice.style.cssText = 'font-size: 0.82rem; color: var(--text-secondary); background: var(--bg-secondary); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 12px; line-height: 1.4; border: 1px solid var(--border);';
+    securityNotice.innerHTML = '🔒 <strong>Bảo mật Tài khoản Cá nhân</strong><br>Quyền chuyển đổi tài khoản con chỉ thuộc về Tài khoản Quản trị viên (Admin).';
+    container.appendChild(securityNotice);
+  }
 
   const logoutBtn = document.createElement('button');
   logoutBtn.className = 'hf-btn hf-btn-secondary';
@@ -658,6 +755,11 @@ function renderSettings() {
   if (userInput) userInput.value = currentUser.username || '';
   if (passInput) passInput.value = currentUser.pass || '';
   if (mailInput) mailInput.value = currentUser.email || '';
+
+  const customUrlInput = document.getElementById('customFirebaseUrlInput');
+  if (customUrlInput) {
+    customUrlInput.value = localStorage.getItem('pntask_firebase_db_url') || '';
+  }
 }
 
 function submitSaveSettingsProfile() {
@@ -923,12 +1025,13 @@ function approveUserRegistration(reqId) {
     const req = hfState.pendingRegistrations[index];
     const newUser = {
       id: `u-${Date.now()}`,
-      username: req.username,
+      username: req.username.toLowerCase(),
       pass: req.pass,
       name: req.name,
       role: 'Thành viên Đội ngũ',
       avatar: req.name.charAt(0).toUpperCase(),
       status: 'APPROVED',
+      teamCode: '',
       permissions: { canDeleteTask: false, canCreateProject: false, canExportData: false, canAccessSettings: false, canManageUsers: false }
     };
 
@@ -938,7 +1041,7 @@ function approveUserRegistration(reqId) {
     saveHfState(true);
     renderTeams();
     renderAllViews();
-    showToast(`Đã phê duyệt tài khoản ${newUser.name}.`);
+    showToast(`Đã phê duyệt tài khoản ${newUser.name}. Tài khoản mới có danh sách công việc rỗng.`);
   }
 }
 
@@ -1212,11 +1315,17 @@ function deleteUserAccount(userId) {
 
   if (confirm(`Bạn có chắc muốn xóa vĩnh viễn tài khoản [${targetUser.name}] (${targetUser.username}) khỏi hệ thống?`)) {
     hfState.users = hfState.users.filter(u => u.id !== userId);
+
+    // If currently logged in as the deleted user, switch active context safely back to root Admin
+    if (hfState.currentUser && hfState.currentUser.id === userId) {
+      hfState.currentUser = hfState.users.find(u => u.username === 'pn') || hfState.users[0] || null;
+    }
+
     addAuditLog(`Đã xóa tài khoản của: ${targetUser.name} (${targetUser.username})`);
     saveHfState(true);
     renderTeams();
     renderAllViews();
-    showToast(`Đã xóa tài khoản ${targetUser.name}.`);
+    showToast(`Đã xóa thành công tài khoản ${targetUser.name}.`);
   }
 }
 
@@ -1235,20 +1344,22 @@ function createNewUserAccount() {
 
   const newUser = {
     id: `u-${Date.now()}`,
-    username: username || `user_${Date.now()}`,
+    username: (username || `user_${Date.now()}`).trim().toLowerCase(),
     pass: pass || '123456',
     name: name.trim(),
     role: role || 'Thành viên Đội ngũ',
     avatar: name.trim().charAt(0).toUpperCase(),
     status: 'APPROVED',
+    teamCode: '',
     permissions: { canDeleteTask: false, canCreateProject: false, canExportData: false, canAccessSettings: false, canManageUsers: false }
   };
 
   hfState.users.push(newUser);
-  addAuditLog(`Đã khởi tạo tài khoản: ${newUser.name} (${newUser.role})`);
+  addAuditLog(`Đã khởi tạo tài khoản mới: ${newUser.name} (${newUser.role})`);
   saveHfState(true);
   renderTeams();
-  showToast(`Đã khởi tạo tài khoản cho ${newUser.name}.`);
+  renderAllViews();
+  showToast(`Đã khởi tạo tài khoản thành công cho ${newUser.name}. Danh sách công việc khởi điểm trống.`);
 }
 
 function openEditUserModal(userId) {
@@ -2314,10 +2425,35 @@ function updateTopNavUserDisplay() {
 
 function switchUserProfile(userId) {
   const currentUser = hfState.currentUser;
-  if (!currentUser || currentUser.id !== userId) {
-    alert('Tính năng chuyển đổi tài khoản trực tiếp đã bị khóa vì lý do bảo mật. Mỗi người dùng chỉ được phép truy cập tài khoản của chính mình. Vui lòng Đăng xuất nếu muốn đăng nhập tài khoản khác.');
+  if (!currentUser) return;
+
+  const isPNAdmin = checkIsAdmin(currentUser);
+
+  if (!isPNAdmin && currentUser.id !== userId && currentUser.username !== userId) {
+    alert('Chỉ tài khoản Quản trị viên (Admin) mới có quyền chuyển đổi tài khoản con. Bạn chỉ có thể truy cập tài khoản của chính mình.');
     return;
   }
+
+  const targetUser = (hfState.users || []).find(u => u.id === userId || u.username === userId);
+  if (!targetUser) {
+    alert('Không tìm thấy tài khoản target.');
+    return;
+  }
+
+  hfState.currentUser = targetUser;
+  saveHfState(true);
+
+  const modal = document.getElementById('userProfileDropdownModal');
+  if (modal) modal.classList.remove('active');
+
+  const detailsModal = document.getElementById('viewSubAccountModalOverlay');
+  if (detailsModal) {
+    detailsModal.classList.remove('active');
+    detailsModal.style.display = 'none';
+  }
+
+  renderAllViews();
+  showToast(`🟢 Đã chuyển đổi quyền thao tác sang tài khoản con: ${targetUser.name} (${targetUser.role})`);
 }
 
 function applyThemeAndAccent() {
@@ -2594,24 +2730,78 @@ function renderTeams() {
   const container = document.getElementById('teamsListContainer');
   if (!container) return;
 
-  const isPNAdmin = checkIsAdmin(hfState.currentUser);
+  const currentUser = hfState.currentUser;
+  const isPNAdmin = checkIsAdmin(currentUser);
+
   if (!isPNAdmin) {
-    container.innerHTML = `<div class="hf-card" style="text-align:center; padding:40px;">
-      <h2 style="color:var(--danger);">Khu vực Giới hạn Access</h2>
-      <p style="color:var(--text-secondary); margin-top:8px;">Chức năng này dành riêng cho Tài khoản Quản trị viên.</p>
-    </div>`;
+    // Non-Admin View: Interactive Team Join & Creation Portal with Team Code
+    const userTeamCode = (currentUser?.teamCode || '').trim().toUpperCase();
+    const joinedTeams = currentUser?.joinedTeams || (userTeamCode ? [userTeamCode] : []);
+
+    let teamInfoHtml = '';
+    if (joinedTeams.length > 0) {
+      const currentTeamObj = (hfState.teams || []).find(t => t.code && joinedTeams.includes(t.code.toUpperCase()));
+      teamInfoHtml = `
+        <div class="hf-card" style="margin-bottom:20px; border-left:4px solid var(--success); background:rgba(39, 174, 96, 0.06);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+              <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Đội Nhóm Đang Tham Gia</div>
+              <h3 style="margin-top:2px; color:var(--success);">${escapeHtml(currentTeamObj ? currentTeamObj.name : 'Đội Nhóm ' + joinedTeams[0])}</h3>
+              <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">Mã Đội Nhóm: <code style="color:var(--primary); font-weight:700; font-size:1rem;">${escapeHtml(joinedTeams[0])}</code></p>
+            </div>
+            <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:rgba(231,76,60,0.4);" onclick="leaveTeam('${joinedTeams[0]}')">🚪 Rời Khỏi Đội Nhóm</button>
+          </div>
+          <p style="font-size:0.82rem; color:var(--text-muted); margin-top:10px;">🟢 Bạn đang nhìn thấy công việc cá nhân VÀ tất cả công việc chung của Đội Nhóm này.</p>
+        </div>
+      `;
+    } else {
+      teamInfoHtml = `
+        <div class="hf-card" style="margin-bottom:20px; border-left:4px solid var(--warning); background:rgba(241, 196, 15, 0.06);">
+          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Chế Độ Tài Khoản Cá Nhân</div>
+          <h3 style="margin-top:2px;">Chưa Tham Gia Đội Nhóm Nào</h3>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">Danh sách công việc của bạn hiện chỉ hiển thị công việc cá nhân. Nhập Mã Tạo Đội Nhóm bên dưới để tham gia làm việc chung với đội nhóm.</p>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      ${teamInfoHtml}
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">
+        <div class="hf-card">
+          <h3>🔑 Tham Gia Đội Nhóm Bằng Mã</h3>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Nhập Mã Tạo Đội Nhóm được người quản lý hoặc trưởng nhóm cung cấp.</p>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="joinTeamCodeInput" class="form-input" placeholder="Ví dụ: TEAM-2026..." style="text-transform:uppercase; font-weight:700;">
+            <button class="hf-btn hf-btn-primary" onclick="submitJoinTeamWithCode()">Tham Gia</button>
+          </div>
+        </div>
+
+        <div class="hf-card">
+          <h3>➕ Tạo Mã Đội Nhóm Mới</h3>
+          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Tạo Đội Nhóm riêng và lấy Mã Đội Nhóm để chia sẻ cho các thành viên khác.</p>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <input type="text" id="newTeamNameInput" class="form-input" placeholder="Tên Đội Nhóm (VD: Tiếp Thị Digital)">
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="newTeamCodeInput" class="form-input" placeholder="Mã Nhóm (VD: TEAM-MKT)" style="text-transform:uppercase; font-weight:700;">
+              <button class="hf-btn hf-btn-primary" onclick="submitCreateNewTeamWithCode()" style="white-space:nowrap;">Tạo Mã Nhóm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
     return;
   }
 
+  // Admin View: Full Sub-Accounts Monitoring and Management Portal
   const pendingList = hfState.pendingRegistrations || [];
   const allUsers = hfState.users || [];
   const subAccounts = allUsers.filter(u => u.username !== 'pn' && u.id !== 'u-pn');
 
   let html = `<div class="hf-card" style="margin-bottom:16px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
-        <h3>Trung tâm Quản lý & Giám sát Tài khoản Con (Sub-Accounts)</h3>
-        <p style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">Quyền Admin: Theo dõi thông tin, mật khẩu, thống kê công việc và quản lý phân quyền tất cả tài khoản thành viên con.</p>
+        <h3>Trung tâm Quản lý & Chuyển đổi Tài khoản Con (Sub-Accounts)</h3>
+        <p style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">Quyền Admin: Giám sát thông tin, tạo mới, xóa vĩnh viễn và **Chuyển đổi thao tác trực tiếp** sang tài khoản con.</p>
       </div>
       <button class="hf-btn hf-btn-primary" onclick="createNewUserAccount()">+ Tạo Tài khoản Con Mới</button>
     </div>
@@ -2670,7 +2860,7 @@ function renderTeams() {
     html += `</tbody></table></div></div>`;
   }
 
-  html += `<h3 style="margin-bottom:10px;">Danh sách Tài khoản Con & Phân quyền Chi tiết</h3>
+  html += `<h3 style="margin-bottom:10px;">Danh sách Tài khoản Con & Quyền Chuyển đổi Admin</h3>
   <div class="misa-table-container"><table class="misa-table">
     <thead>
       <tr>
@@ -2678,20 +2868,21 @@ function renderTeams() {
         <th>Tên đăng nhập</th>
         <th>Mật khẩu</th>
         <th>Vai trò</th>
-        <th>Công việc</th>
-        <th>Hành động Quản trị</th>
+        <th>Số Task</th>
+        <th>Hành động Admin (Chuyển đổi & Quản trị)</th>
       </tr>
     </thead>
     <tbody>`;
 
   allUsers.forEach(u => {
     const isRootPN = u.username === 'pn' || u.id === 'u-pn';
+    const isCurrentActive = currentUser && u.id === currentUser.id;
     const userTasks = (hfState.tasks || []).filter(t => t.assignee === u.name || t.assignee === u.username);
 
     html += `
-      <tr>
+      <tr style="${isCurrentActive ? 'background: rgba(197, 160, 89, 0.08);' : ''}">
         <td style="font-weight:700;">
-          ${escapeHtml(u.name)} ${isRootPN ? '<span class="hf-badge badge-done" style="margin-left:4px; font-size:0.7rem;">ADMIN ROOT</span>' : ''}
+          ${escapeHtml(u.name)} ${isRootPN ? '<span class="hf-badge badge-done" style="margin-left:4px; font-size:0.7rem;">ADMIN ROOT</span>' : ''} ${isCurrentActive ? '<span class="hf-badge badge-progress" style="margin-left:4px; font-size:0.7rem;">ĐANG HOẠT ĐỘNG</span>' : ''}
         </td>
         <td><code>${escapeHtml(u.username)}</code></td>
         <td><code>${escapeHtml(u.pass || '******')}</code></td>
@@ -2708,10 +2899,11 @@ function renderTeams() {
         </td>
         <td><span class="hf-badge badge-progress">${userTasks.length} Task</span></td>
         <td>
-          <div style="display:flex; gap:6px; align-items:center;">
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            ${!isCurrentActive ? `<button onclick="switchUserProfile('${u.id}')" class="hf-btn hf-btn-primary" style="padding:4px 8px; font-size:0.75rem; background:var(--accent-color, #C5A059); border-color:var(--accent-color, #C5A059);" title="Chuyển sang thao tác tài khoản con này">🔄 Chuyển tài khoản</button>` : ''}
             <button onclick="openSubAccountDetailsModal('${u.id}')" class="hf-btn hf-btn-primary" style="padding:4px 8px; font-size:0.75rem;">👁️ Xem Chi tiết</button>
             <button onclick="openEditUserModal('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:4px 8px; font-size:0.75rem;">Sửa</button>
-            ${!isRootPN ? `<button onclick="deleteUserAccount('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" title="Xóa tài khoản con">Xóa</button>` : ''}
+            ${!isRootPN ? `<button onclick="deleteUserAccount('${u.id}')" class="hf-btn hf-btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" title="Xóa vĩnh viễn tài khoản con">Xóa</button>` : ''}
           </div>
         </td>
       </tr>
@@ -2733,6 +2925,126 @@ function renderTeams() {
 
   html += `</div></div>`;
   container.innerHTML = html;
+}
+
+function submitJoinTeamWithCode() {
+  const input = document.getElementById('joinTeamCodeInput');
+  const code = input ? input.value.trim().toUpperCase() : '';
+  if (!code) {
+    alert('Vui lòng nhập Mã Tạo Đội Nhóm.');
+    return;
+  }
+
+  joinTeamWithCode(code);
+}
+
+function joinTeamWithCode(codeStr) {
+  const user = hfState.currentUser;
+  if (!user) return;
+
+  const code = (codeStr || '').trim().toUpperCase();
+  if (!code) return;
+
+  if (!user.joinedTeams) user.joinedTeams = [];
+  if (!user.joinedTeams.includes(code)) {
+    user.joinedTeams.push(code);
+  }
+  user.teamCode = code;
+
+  // Add user to team object members list if team exists
+  if (!hfState.teams) hfState.teams = [];
+  let existingTeam = hfState.teams.find(t => t.code && t.code.toUpperCase() === code);
+  if (!existingTeam) {
+    existingTeam = {
+      id: `team-${Date.now()}`,
+      name: `Đội Nhóm ${code}`,
+      code: code,
+      createdBy: user.username,
+      members: [user.username]
+    };
+    hfState.teams.push(existingTeam);
+  } else {
+    if (!existingTeam.members) existingTeam.members = [];
+    if (!existingTeam.members.includes(user.username)) {
+      existingTeam.members.push(user.username);
+    }
+  }
+
+  saveHfState(true);
+  renderTeams();
+  renderAllViews();
+  showToast(`🎉 Đã tham gia Đội Nhóm [${code}] thành công! Công việc chung nhóm đã hiển thị.`);
+}
+
+function submitCreateNewTeamWithCode() {
+  const nameInput = document.getElementById('newTeamNameInput');
+  const codeInput = document.getElementById('newTeamCodeInput');
+
+  const teamName = nameInput ? nameInput.value.trim() : '';
+  const teamCode = codeInput ? codeInput.value.trim().toUpperCase() : '';
+
+  if (!teamName || !teamCode) {
+    alert('Vui lòng nhập đầy đủ Tên Đội Nhóm và Mã Đội Nhóm.');
+    return;
+  }
+
+  createNewTeamWithCode(teamName, teamCode);
+}
+
+function createNewTeamWithCode(teamName, teamCodeStr) {
+  const user = hfState.currentUser;
+  if (!user) return;
+
+  const code = (teamCodeStr || '').trim().toUpperCase();
+  if (!code) return;
+
+  if (!hfState.teams) hfState.teams = [];
+  const exists = hfState.teams.find(t => t.code && t.code.toUpperCase() === code);
+  if (exists) {
+    alert('Mã Đội Nhóm này đã tồn tại trên hệ thống. Bạn có thể sử dụng tính năng Tham Gia Nhóm.');
+    return;
+  }
+
+  const newTeamObj = {
+    id: `team-${Date.now()}`,
+    name: teamName.trim(),
+    code: code,
+    createdBy: user.username,
+    members: [user.username]
+  };
+
+  hfState.teams.push(newTeamObj);
+
+  if (!user.joinedTeams) user.joinedTeams = [];
+  if (!user.joinedTeams.includes(code)) {
+    user.joinedTeams.push(code);
+  }
+  user.teamCode = code;
+
+  saveHfState(true);
+  renderTeams();
+  renderAllViews();
+  showToast(`✨ Đã khởi tạo Đội Nhóm [${teamName}] với Mã [${code}] thành công!`);
+}
+
+function leaveTeam(codeStr) {
+  const user = hfState.currentUser;
+  if (!user) return;
+
+  const code = (codeStr || '').trim().toUpperCase();
+  if (confirm(`Bạn có chắc muốn rời khỏi Đội Nhóm [${code}]? Sau khi rời nhóm, công việc chung sẽ không còn hiển thị.`)) {
+    if (user.joinedTeams) {
+      user.joinedTeams = user.joinedTeams.filter(c => c.toUpperCase() !== code);
+    }
+    if (user.teamCode && user.teamCode.toUpperCase() === code) {
+      user.teamCode = user.joinedTeams && user.joinedTeams.length > 0 ? user.joinedTeams[0] : '';
+    }
+
+    saveHfState(true);
+    renderTeams();
+    renderAllViews();
+    showToast(`Đã rời khỏi Đội Nhóm [${code}]. Bạn quay về giao diện công việc cá nhân.`);
+  }
 }
 
 function openSubAccountDetailsModal(userId) {
@@ -2836,6 +3148,7 @@ function openSubAccountDetailsModal(userId) {
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <button class="hf-btn hf-btn-primary" onclick="switchUserProfile('${targetUser.id}')" style="font-size:0.8rem; background:var(--accent-color, #C5A059); border-color:var(--accent-color, #C5A059);">🔄 Chuyển Sang Thao Tác Tài Khoản Này</button>
         <button class="hf-btn hf-btn-primary" onclick="closeSubAccountDetailsModal(); openEditUserModal('${targetUser.id}');" style="font-size:0.8rem;">Chỉnh sửa Thông tin & Mật khẩu</button>
         <button class="hf-btn hf-btn-secondary" onclick="closeSubAccountDetailsModal()" style="font-size:0.8rem;">Đóng Window</button>
       </div>
