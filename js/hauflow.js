@@ -529,6 +529,17 @@ function hasPermission(permissionName) {
   return user.permissions && user.permissions[permissionName] === true;
 }
 
+function userIsInGroup(user) {
+  const u = user || hfState.currentUser;
+  if (!u) return false;
+  if (checkIsAdmin(u)) return true;
+  const userTeamCode = (u.teamCode || '').trim().toUpperCase();
+  const joinedTeams = u.joinedTeams || (userTeamCode ? [userTeamCode] : []);
+  if (!joinedTeams || joinedTeams.length === 0) return false;
+  const validTeams = (hfState.teams || []).map(t => (t.code || '').trim().toUpperCase());
+  return joinedTeams.some(code => validTeams.includes(code));
+}
+
 function getVisibleTasks() {
   const user = hfState.currentUser;
   if (!user) return [];
@@ -1454,10 +1465,19 @@ function addAuditLog(actionText) {
 
 /* REALTIME TEAM CHAT SYSTEM */
 function sendChatMessage() {
+  const currentUser = hfState.currentUser;
+  if (!userIsInGroup(currentUser)) {
+    alert('⚠️ Bạn chưa tham gia Đội Nhóm nào. Vui lòng bấm nút "🔑 Tham Gia Nhóm" để nhập Mã Nhóm trước khi gửi tin nhắn.');
+    return;
+  }
+  if (!hasPermission('canUseGroupChat')) {
+    alert('⚠️ Tài khoản của bạn chưa được Admin cấp quyền trò chuyện nhóm.');
+    return;
+  }
   const input = document.getElementById('chatMessageInput');
   if (!input || !input.value.trim()) return;
 
-  const user = hfState.currentUser || { name: 'Thành viên Đội ngũ', avatar: 'PN', role: 'Thành viên' };
+  const user = currentUser || { name: 'Thành viên Đội ngũ', avatar: 'PN', role: 'Thành viên' };
   const newMsg = {
     id: `msg-${Date.now()}`,
     sender: user.name,
@@ -1480,8 +1500,34 @@ function renderChat() {
   const container = document.getElementById('chatMessagesContainer');
   if (!container) return;
 
+  const currentUser = hfState.currentUser;
+  const chatInput = document.getElementById('chatMessageInput');
+
+  if (!userIsInGroup(currentUser)) {
+    if (chatInput) {
+      chatInput.disabled = true;
+      chatInput.placeholder = '🔒 Bạn chưa tham gia Đội Nhóm nào... Vui lòng bấm nút Tham Gia Nhóm bên trên.';
+    }
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height:280px; text-align:center; padding:30px; background:rgba(241, 196, 15, 0.05); border-radius:12px; border:2px dashed var(--warning);">
+        <div style="font-size:3.5rem; margin-bottom:12px;">🔒</div>
+        <h3 style="margin-bottom:8px; color:var(--warning);">Tính năng Trò chuyện Nhóm Đang Bị Khóa</h3>
+        <p style="color:var(--text-secondary); max-width:480px; font-size:0.9rem; margin-bottom:20px; line-height:1.5;">
+          Bạn chưa gia nhập bất kỳ Đội Nhóm nào trên hệ thống. Vui lòng tham gia nhóm bằng Mã Đội Nhóm để mở khóa tính năng trò chuyện thời gian thực với đồng nghiệp.
+        </p>
+        <button class="hf-btn hf-btn-primary" style="font-size:1rem; padding:10px 24px;" onclick="openJoinTeamModal()">🔑 Tham Gia Nhóm Ngay</button>
+      </div>
+    `;
+    return;
+  }
+
+  if (chatInput) {
+    chatInput.disabled = false;
+    chatInput.placeholder = 'Nhập tin nhắn chat nhóm (bấm Enter để gửi)...';
+  }
+
   container.innerHTML = '';
-  const currentName = hfState.currentUser ? hfState.currentUser.name : '';
+  const currentName = currentUser ? currentUser.name : '';
 
   (hfState.chatMessages || []).forEach(m => {
     const isMe = m.sender === currentName;
@@ -2726,78 +2772,316 @@ function toggleTaskDone(taskId) {
 }
 
 /* TEAMS & RBAC & APPROVAL VIEW */
+function changeMemberRoleInTeam(teamCode, memberUsername, newRole) {
+  const currentUser = hfState.currentUser;
+  if (!currentUser) return;
+
+  const team = (hfState.teams || []).find(t => t.code && t.code.toUpperCase() === teamCode.toUpperCase());
+  if (!team) return;
+
+  const isOwner = (team.createdBy && team.createdBy.toLowerCase() === currentUser.username.toLowerCase()) || checkIsAdmin(currentUser);
+  if (!isOwner) {
+    alert('Chỉ Chủ Nhóm hoặc Admin mới có quyền đổi vai trò thành viên trong nhóm.');
+    return;
+  }
+
+  if (!team.memberRoles) team.memberRoles = {};
+  team.memberRoles[memberUsername] = newRole;
+
+  addAuditLog(`Chủ nhóm [${currentUser.name}] đã đổi vai trò của [${memberUsername}] thành [${newRole}] trong nhóm [${team.name}]`);
+  saveHfState(true);
+  renderTeams();
+  renderAllViews();
+  showToast(`Đã đổi vai trò của ${memberUsername} thành ${newRole}.`);
+}
+
+function removeMemberFromTeam(teamCode, memberUsername) {
+  const currentUser = hfState.currentUser;
+  if (!currentUser) return;
+
+  const team = (hfState.teams || []).find(t => t.code && t.code.toUpperCase() === teamCode.toUpperCase());
+  if (!team) return;
+
+  const isOwner = (team.createdBy && team.createdBy.toLowerCase() === currentUser.username.toLowerCase()) || checkIsAdmin(currentUser);
+  if (!isOwner) {
+    alert('Chỉ Chủ Nhóm hoặc Admin mới có quyền xóa thành viên khỏi nhóm.');
+    return;
+  }
+
+  if (confirm(`Bạn có chắc muốn xóa thành viên [${memberUsername}] khỏi Đội Nhóm [${team.name}]?`)) {
+    if (team.members) {
+      team.members = team.members.filter(m => (typeof m === 'string' ? m : m.username) !== memberUsername);
+    }
+    const targetUserObj = (hfState.users || []).find(u => u.username === memberUsername || u.name === memberUsername);
+    if (targetUserObj && targetUserObj.joinedTeams) {
+      targetUserObj.joinedTeams = targetUserObj.joinedTeams.filter(c => c.toUpperCase() !== teamCode.toUpperCase());
+      if (targetUserObj.teamCode && targetUserObj.teamCode.toUpperCase() === teamCode.toUpperCase()) {
+        targetUserObj.teamCode = targetUserObj.joinedTeams[0] || '';
+      }
+    }
+
+    addAuditLog(`Chủ nhóm [${currentUser.name}] đã xóa thành viên [${memberUsername}] khỏi nhóm [${team.name}]`);
+    saveHfState(true);
+    renderTeams();
+    renderAllViews();
+    showToast(`Đã xóa thành viên ${memberUsername} khỏi Đội Nhóm.`);
+  }
+}
+
+function deleteTeamByOwner(teamCodeStr) {
+  const currentUser = hfState.currentUser;
+  if (!currentUser) return;
+
+  const code = (teamCodeStr || '').trim().toUpperCase();
+  if (!code) return;
+
+  const team = (hfState.teams || []).find(t => t.code && t.code.toUpperCase() === code);
+  if (!team) {
+    alert('Không tìm thấy dữ liệu Đội Nhóm này.');
+    return;
+  }
+
+  const isOwner = (team.createdBy && team.createdBy.toLowerCase() === currentUser.username.toLowerCase()) || checkIsAdmin(currentUser);
+  if (!isOwner) {
+    alert('Chỉ Chủ Nhóm hoặc Admin mới có quyền xóa Đội Nhóm này.');
+    return;
+  }
+
+  if (confirm(`⚠️ Bạn có chắc chắn muốn XÓA VĨNH VIỄN Đội Nhóm [${team.name}] (Mã: ${code})?\n\nSau khi xóa, tất cả thành viên sẽ không còn thuộc nhóm này.`)) {
+    hfState.teams = (hfState.teams || []).filter(t => t.code && t.code.toUpperCase() !== code);
+
+    (hfState.users || []).forEach(u => {
+      if (u.joinedTeams) {
+        u.joinedTeams = u.joinedTeams.filter(c => c.toUpperCase() !== code);
+      }
+      if (u.teamCode && u.teamCode.toUpperCase() === code) {
+        u.teamCode = u.joinedTeams && u.joinedTeams.length > 0 ? u.joinedTeams[0] : '';
+      }
+    });
+
+    if (currentUser.joinedTeams) {
+      currentUser.joinedTeams = currentUser.joinedTeams.filter(c => c.toUpperCase() !== code);
+    }
+    if (currentUser.teamCode && currentUser.teamCode.toUpperCase() === code) {
+      currentUser.teamCode = currentUser.joinedTeams && currentUser.joinedTeams.length > 0 ? currentUser.joinedTeams[0] : '';
+    }
+
+    addAuditLog(`Chủ nhóm [${currentUser.name}] đã XÓA VĨNH VIỄN Đội Nhóm [${team.name}] (Mã: ${code})`);
+    saveHfState(true);
+    renderTeams();
+    renderAllViews();
+    showToast(`🗑️ Đã xóa vĩnh viễn Đội Nhóm [${team.name}] thành công!`);
+  }
+}
+
 function renderTeams() {
   const container = document.getElementById('teamsListContainer');
   if (!container) return;
 
   const currentUser = hfState.currentUser;
+  if (!currentUser) return;
   const isPNAdmin = checkIsAdmin(currentUser);
 
-  if (!isPNAdmin) {
-    // Non-Admin View: Interactive Team Join & Creation Portal with Team Code
-    const userTeamCode = (currentUser?.teamCode || '').trim().toUpperCase();
-    const joinedTeams = currentUser?.joinedTeams || (userTeamCode ? [userTeamCode] : []);
+  const userTeamCode = (currentUser.teamCode || '').trim().toUpperCase();
+  const joinedTeams = currentUser.joinedTeams || (userTeamCode ? [userTeamCode] : []);
+  const allTeams = hfState.teams || [];
 
-    let teamInfoHtml = '';
-    if (joinedTeams.length > 0) {
-      const currentTeamObj = (hfState.teams || []).find(t => t.code && joinedTeams.includes(t.code.toUpperCase()));
-      teamInfoHtml = `
-        <div class="hf-card" style="margin-bottom:20px; border-left:4px solid var(--success); background:rgba(39, 174, 96, 0.06);">
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+  // Filter 1: My Owned Groups (Nhóm do tôi làm Chủ nhóm)
+  const ownedTeams = allTeams.filter(t => t.createdBy && t.createdBy.toLowerCase() === currentUser.username.toLowerCase());
+  
+  // Filter 2: Joined Groups (Nhóm tôi tham gia do người khác làm Chủ nhóm)
+  const joinedOtherTeams = allTeams.filter(t => {
+    const isOwner = t.createdBy && t.createdBy.toLowerCase() === currentUser.username.toLowerCase();
+    if (isOwner) return false;
+    const tCode = (t.code || '').toUpperCase();
+    const isInJoinedList = joinedTeams.includes(tCode);
+    const isInMembers = t.members && t.members.some(m => (typeof m === 'string' ? m : m.username) === currentUser.username);
+    return isInJoinedList || isInMembers;
+  });
+
+  // Render Section 1: My Owned Teams
+  let ownedTeamsHtml = '';
+  if (ownedTeams.length === 0) {
+    ownedTeamsHtml = `
+      <div style="background:var(--bg-secondary); padding:16px; border-radius:8px; border:1px dashed var(--border); color:var(--text-muted); font-size:0.85rem; margin-bottom:20px;">
+        Bạn chưa khởi tạo Đội Nhóm nào. Hãy sử dụng khung "➕ Tạo Mã Đội Nhóm Mới" bên dưới để khởi tạo và làm Chủ Nhóm!
+      </div>
+    `;
+  } else {
+    ownedTeamsHtml = ownedTeams.map(t => {
+      const membersList = (t.members || []).map(m => typeof m === 'string' ? m : (m.username || m.name));
+      let memberRows = '';
+      membersList.forEach(mUser => {
+        const uObj = (hfState.users || []).find(u => u.username === mUser || u.name === mUser) || { name: mUser, username: mUser, role: 'Thành viên' };
+        const isOwner = mUser === t.createdBy;
+        const currentTeamRole = (t.memberRoles && t.memberRoles[mUser]) || (isOwner ? 'OWNER' : 'MEMBER');
+
+        memberRows += `
+          <tr>
+            <td style="font-weight:600;">
+              ${escapeHtml(uObj.name)} ${isOwner ? '<span class="hf-badge badge-done" style="margin-left:4px; font-size:0.7rem;">👑 CHỦ NHÓM</span>' : ''}
+              <div style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;"><code>${escapeHtml(uObj.username)}</code></div>
+            </td>
+            <td>
+              ${isOwner ? '<span class="hf-badge badge-done">👑 Trưởng Nhóm (Leader / Owner)</span>' : `
+                <select class="form-select" style="padding:4px 8px; font-size:0.75rem; width:auto;" onchange="changeMemberRoleInTeam('${escapeHtml(t.code)}', '${escapeHtml(uObj.username)}', this.value)">
+                  <option value="MANAGER" ${currentTeamRole === 'MANAGER' ? 'selected' : ''}>🛠️ Quản Lý Nhóm</option>
+                  <option value="MEMBER" ${currentTeamRole === 'MEMBER' || !currentTeamRole ? 'selected' : ''}>👤 Thành Viên Nhóm</option>
+                  <option value="VIEWER" ${currentTeamRole === 'VIEWER' ? 'selected' : ''}>👁️ Người Xem Nhóm</option>
+                </select>
+              `}
+            </td>
+            <td>
+              ${!isOwner ? `<button class="hf-btn hf-btn-secondary" style="padding:3px 8px; font-size:0.725rem; color:var(--danger);" onclick="removeMemberFromTeam('${escapeHtml(t.code)}', '${escapeHtml(uObj.username)}')">Xóa khỏi nhóm</button>` : '<span style="font-size:0.75rem; color:var(--text-muted);">Quản trị viên khởi tạo</span>'}
+            </td>
+          </tr>
+        `;
+      });
+
+      return `
+        <div class="hf-card" style="margin-bottom:20px; border-left:4px solid var(--primary);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
             <div>
-              <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Đội Nhóm Đang Tham Gia</div>
-              <h3 style="margin-top:2px; color:var(--success);">${escapeHtml(currentTeamObj ? currentTeamObj.name : 'Đội Nhóm ' + joinedTeams[0])}</h3>
-              <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">Mã Đội Nhóm: <code style="color:var(--primary); font-weight:700; font-size:1rem;">${escapeHtml(joinedTeams[0])}</code></p>
+              <div style="font-size:0.75rem; color:var(--primary); font-weight:700; text-transform:uppercase;">👑 Đội Nhóm Do Bạn Làm Chủ Nhóm (Leader)</div>
+              <h3 style="margin-top:2px; color:var(--text-primary);">${escapeHtml(t.name)}</h3>
+              <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:2px;">
+                Mã Nhóm: <code style="color:var(--primary); font-weight:700; font-size:0.95rem;">${escapeHtml(t.code)}</code> · Số thành viên: <strong>${membersList.length}</strong>
+              </p>
             </div>
-            <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:rgba(231,76,60,0.4);" onclick="leaveTeam('${joinedTeams[0]}')">🚪 Rời Khỏi Đội Nhóm</button>
-          </div>
-          <p style="font-size:0.82rem; color:var(--text-muted); margin-top:10px;">🟢 Bạn đang nhìn thấy công việc cá nhân VÀ tất cả công việc chung của Đội Nhóm này.</p>
-        </div>
-      `;
-    } else {
-      teamInfoHtml = `
-        <div class="hf-card" style="margin-bottom:20px; border-left:4px solid var(--warning); background:rgba(241, 196, 15, 0.06);">
-          <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Chế Độ Tài Khoản Cá Nhân</div>
-          <h3 style="margin-top:2px;">Chưa Tham Gia Đội Nhóm Nào</h3>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">Danh sách công việc của bạn hiện chỉ hiển thị công việc cá nhân. Nhập Mã Tạo Đội Nhóm bên dưới để tham gia làm việc chung với đội nhóm.</p>
-        </div>
-      `;
-    }
-
-    container.innerHTML = `
-      ${teamInfoHtml}
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px;">
-        <div class="hf-card">
-          <h3>🔑 Tham Gia Đội Nhóm Bằng Mã</h3>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Nhập Mã Tạo Đội Nhóm được người quản lý hoặc trưởng nhóm cung cấp.</p>
-          <div style="display:flex; gap:8px;">
-            <input type="text" id="joinTeamCodeInput" class="form-input" placeholder="Ví dụ: TEAM-2026..." style="text-transform:uppercase; font-weight:700;">
-            <button class="hf-btn hf-btn-primary" onclick="submitJoinTeamWithCode()">Tham Gia</button>
-          </div>
-        </div>
-
-        <div class="hf-card">
-          <h3>➕ Tạo Mã Đội Nhóm Mới</h3>
-          <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Tạo Đội Nhóm riêng và lấy Mã Đội Nhóm để chia sẻ cho các thành viên khác.</p>
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <input type="text" id="newTeamNameInput" class="form-input" placeholder="Tên Đội Nhóm (VD: Tiếp Thị Digital)">
-            <div style="display:flex; gap:8px;">
-              <input type="text" id="newTeamCodeInput" class="form-input" placeholder="Mã Nhóm (VD: TEAM-MKT)" style="text-transform:uppercase; font-weight:700;">
-              <button class="hf-btn hf-btn-primary" onclick="submitCreateNewTeamWithCode()" style="white-space:nowrap;">Tạo Mã Nhóm</button>
+            <div style="display:flex; gap:6px;">
+              <button class="hf-btn hf-btn-secondary" style="font-size:0.75rem;" onclick="navigator.clipboard.writeText('${escapeHtml(t.code)}'); showToast('Đã chép Mã Nhóm!');">📋 Chép Mã Nhóm</button>
+              <button class="hf-btn hf-btn-secondary" style="font-size:0.75rem; color:var(--danger); border-color:rgba(231,76,60,0.4);" onclick="deleteTeamByOwner('${escapeHtml(t.code)}')">🗑️ Xóa Đội Nhóm</button>
             </div>
           </div>
+
+          <h4 style="font-size:0.85rem; margin-bottom:6px; color:var(--text-muted);">Danh Sách Thành Viên & Quản Lý Phân Quyền Trong Nhóm</h4>
+          <div class="misa-table-container">
+            <table class="misa-table" style="font-size:0.8rem; width:100%;">
+              <thead>
+                <tr>
+                  <th>Thành viên</th>
+                  <th>Vai trò trong nhóm</th>
+                  <th>Hành động Chủ nhóm</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${memberRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Render Section 2: Joined Groups (Nhóm Tôi Đã Tham Gia)
+  let joinedTeamsHtml = '';
+  if (joinedOtherTeams.length === 0) {
+    joinedTeamsHtml = `
+      <div style="background:var(--bg-secondary); padding:16px; border-radius:8px; border:1px dashed var(--border); color:var(--text-muted); font-size:0.85rem; margin-bottom:20px;">
+        Bạn chưa tham gia Đội Nhóm nào do người khác làm Chủ nhóm. Hãy sử dụng khung "🔑 Tham Gia Đội Nhóm Bằng Mã" bên dưới!
+      </div>
+    `;
+  } else {
+    joinedTeamsHtml = joinedOtherTeams.map(t => {
+      const ownerUser = (hfState.users || []).find(u => u.username === t.createdBy || u.name === t.createdBy);
+      const ownerDisplayName = ownerUser ? `${ownerUser.name} (${ownerUser.username})` : (t.createdBy || 'Quản trị viên');
+      const membersList = (t.members || []).map(m => typeof m === 'string' ? m : (m.username || m.name));
+      const myRoleInTeam = (t.memberRoles && t.memberRoles[currentUser.username]) || 'MEMBER';
+
+      let roleBadge = `<span class="hf-badge badge-progress">👤 Thành Viên Nhóm</span>`;
+      if (myRoleInTeam === 'MANAGER') roleBadge = `<span class="hf-badge badge-done">🛠️ Quản Lý Nhóm</span>`;
+      if (myRoleInTeam === 'VIEWER') roleBadge = `<span class="hf-badge badge-todo">👁️ Người Xem Nhóm</span>`;
+
+      return `
+        <div class="hf-card" style="margin-bottom:16px; border-left:4px solid var(--success);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div>
+              <div style="font-size:0.75rem; color:var(--success); font-weight:700; text-transform:uppercase;">🤝 Đội Nhóm Đã Tham Gia</div>
+              <h3 style="margin-top:2px;">${escapeHtml(t.name)}</h3>
+              <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:2px;">
+                Mã Nhóm: <code style="color:var(--primary); font-weight:700;">${escapeHtml(t.code)}</code> · 👑 <strong>Chủ Nhóm (Leader):</strong> <strong style="color:var(--primary);">${escapeHtml(ownerDisplayName)}</strong>
+              </p>
+              <div style="margin-top:4px; font-size:0.8rem;">Vai trò của bạn trong nhóm: ${roleBadge}</div>
+            </div>
+            <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:rgba(231,76,60,0.4); font-size:0.775rem;" onclick="leaveTeam('${escapeHtml(t.code)}')">🚪 Rời Khỏi Nhóm</button>
+          </div>
+          <div style="margin-top:10px; font-size:0.78rem; color:var(--text-muted);">
+            👥 Các thành viên khác (${membersList.length}): ${membersList.slice(0, 6).join(', ')}${membersList.length > 6 ? '...' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Available Teams Badges list
+  let availableTeamsHtml = '';
+  if (allTeams.length > 0) {
+    availableTeamsHtml = `
+      <div class="hf-card" style="margin-top:16px; margin-bottom:20px;">
+        <h4 style="margin-bottom:8px; font-size:0.95rem;">🏢 Tất Cả Đội Nhóm Đang Tồn Tại Trên Hệ Thống</h4>
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;">
+          ${allTeams.map(t => {
+            const ownerU = (hfState.users || []).find(u => u.username === t.createdBy);
+            const ownerNameStr = ownerU ? ownerU.name : t.createdBy;
+            return `
+              <div style="background:var(--bg-secondary); border:1px solid var(--border); padding:8px 14px; border-radius:8px; display:flex; align-items:center; gap:8px;">
+                <div>
+                  <strong style="font-size:0.88rem; color:var(--text-primary);">${escapeHtml(t.name)}</strong>
+                  <div style="font-size:0.75rem; color:var(--text-secondary);">Mã: <code style="color:var(--primary); font-weight:700;">${escapeHtml(t.code)}</code> · 👑 Chủ: ${escapeHtml(ownerNameStr)}</div>
+                </div>
+                <button class="hf-btn hf-btn-primary" style="padding:2px 8px; font-size:0.725rem;" onclick="joinTeamWithCode('${escapeHtml(t.code)}')">Tham Gia</button>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
+  }
+
+  let html = `
+    <h3 style="margin-bottom:12px; color:var(--text-primary);">👑 Danh Sách Đội Nhóm Do Tôi Làm Chủ Nhóm (My Groups)</h3>
+    ${ownedTeamsHtml}
+
+    <h3 style="margin-bottom:12px; color:var(--text-primary);">🤝 Danh Sách Đội Nhóm Tôi Đã Tham Gia (Joined Groups)</h3>
+    ${joinedTeamsHtml}
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:16px; margin-bottom:20px;">
+      <div class="hf-card">
+        <h3>🔑 Tham Gia Đội Nhóm Bằng Mã</h3>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Nhập Mã Tạo Đội Nhóm được người quản lý hoặc trưởng nhóm cung cấp.</p>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="joinTeamCodeInput" class="form-input" placeholder="Ví dụ: PNTASK-TEAM..." style="text-transform:uppercase; font-weight:700;">
+          <button class="hf-btn hf-btn-primary" onclick="submitJoinTeamWithCode()">Tham Gia</button>
+        </div>
+      </div>
+
+      <div class="hf-card">
+        <h3>➕ Tạo Mã Đội Nhóm Mới</h3>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px; margin-bottom:12px;">Tạo Đội Nhóm riêng và lấy Mã Đội Nhóm để chia sẻ cho các thành viên khác.</p>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <input type="text" id="newTeamNameInput" class="form-input" placeholder="Tên Đội Nhóm (VD: Tiếp Thị Digital)">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="newTeamCodeInput" class="form-input" placeholder="Mã Nhóm (VD: TEAM-MKT)" style="text-transform:uppercase; font-weight:700;">
+            <button class="hf-btn hf-btn-primary" onclick="submitCreateNewTeamWithCode()" style="white-space:nowrap;">Tạo Mã Nhóm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    ${availableTeamsHtml}
+  `;
+
+  if (!isPNAdmin) {
+    container.innerHTML = html;
     return;
   }
 
-  // Admin View: Full Sub-Accounts Monitoring and Management Portal
+  // Admin View: Sub-accounts table & Detailed Permissions Matrix
   const pendingList = hfState.pendingRegistrations || [];
   const allUsers = hfState.users || [];
   const subAccounts = allUsers.filter(u => u.username !== 'pn' && u.id !== 'u-pn');
 
-  let html = `<div class="hf-card" style="margin-bottom:16px;">
+  html += `<div class="hf-card" style="margin-bottom:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
         <h3>Trung tâm Quản lý & Chuyển đổi Tài khoản Con (Sub-Accounts)</h3>
@@ -2860,6 +3144,7 @@ function renderTeams() {
     html += `</tbody></table></div></div>`;
   }
 
+  // Sub-accounts Table
   html += `<h3 style="margin-bottom:10px;">Danh sách Tài khoản Con & Quyền Chuyển đổi Admin</h3>
   <div class="misa-table-container"><table class="misa-table">
     <thead>
@@ -2912,6 +3197,93 @@ function renderTeams() {
 
   html += `</tbody></table></div>`;
 
+  // Detailed Permissions Matrix Table (Admin Portal)
+  html += `
+    <div class="hf-card" style="margin-top:24px; border-left:4px solid var(--primary);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div>
+          <h3 style="color:var(--primary);">🛡️ Bảng Ma Trận Phân Quyền Chi Tiết Tài Khoản Con (Permissions Matrix)</h3>
+          <p style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">
+            Quản trị viên có thể bật/tắt từng quyền riêng biệt cho mỗi tài khoản. Danh sách liệt kê rõ <strong>🟢 Quyền ĐƯỢC PHÉP LÀM</strong> và <strong>🔴 Quyền KHÔNG ĐƯỢC PHÉP LÀM</strong>.
+          </p>
+        </div>
+      </div>
+
+      <div class="misa-table-container">
+        <table class="misa-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Thành viên</th>
+              <th>🟢 Quyền ĐƯỢC PHÉP LÀM (Allowed)</th>
+              <th>🔴 Quyền KHÔNG ĐƯỢC PHÉP LÀM (Restricted)</th>
+              <th>⚙️ Điều chỉnh Quyền Tức Thì (1-Click Toggle)</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  subAccounts.forEach(u => {
+    const p = u.permissions || {
+      canUseGroupChat: true,
+      canCreateGroupTask: true,
+      canDeleteTask: false,
+      canCreateProject: false,
+      canExportData: false,
+      canAccessSettings: false,
+      canManageUsers: false
+    };
+
+    const permMap = [
+      { key: 'canUseGroupChat', name: 'Trò chuyện nhóm', icon: '💬' },
+      { key: 'canCreateGroupTask', name: 'Phân công việc nhóm', icon: '📋' },
+      { key: 'canDeleteTask', name: 'Xóa công việc', icon: '🗑️' },
+      { key: 'canCreateProject', name: 'Tạo dự án mới', icon: '📁' },
+      { key: 'canExportData', name: 'Xuất dữ liệu báo cáo', icon: '📊' },
+      { key: 'canAccessSettings', name: 'Truy cập Cài đặt', icon: '⚙️' },
+      { key: 'canManageUsers', name: 'Quản lý tài khoản con', icon: '👥' }
+    ];
+
+    const allowedBadges = [];
+    const deniedBadges = [];
+
+    permMap.forEach(item => {
+      if (p[item.key] === true) {
+        allowedBadges.push(`<span class="hf-badge badge-done" style="font-size:0.75rem; margin:2px;">${item.icon} ${item.name}</span>`);
+      } else {
+        deniedBadges.push(`<span class="hf-badge" style="font-size:0.75rem; margin:2px; background:rgba(231,76,60,0.12); color:var(--danger); border:1px solid rgba(231,76,60,0.3);">${item.icon} ${item.name}</span>`);
+      }
+    });
+
+    const togglesHtml = permMap.map(item => `
+      <label style="display:inline-flex; align-items:center; gap:4px; font-size:0.775rem; margin-right:10px; margin-bottom:6px; cursor:pointer; background:var(--bg-secondary); padding:4px 8px; border-radius:6px; border:1px solid var(--border);">
+        <input type="checkbox" ${p[item.key] === true ? 'checked' : ''} onchange="toggleUserPermission('${u.id}', '${item.key}')">
+        <span>${item.icon} ${item.name}</span>
+      </label>
+    `).join('');
+
+    html += `
+      <tr>
+        <td style="font-weight:700;">
+          <div>${escapeHtml(u.name)}</div>
+          <div style="font-size:0.75rem; color:var(--text-secondary); font-weight:normal;"><code>${escapeHtml(u.username)}</code> · ${escapeHtml(u.role)}</div>
+        </td>
+        <td style="vertical-align:top;">
+          ${allowedBadges.length > 0 ? allowedBadges.join('') : '<span style="font-size:0.8rem; color:var(--text-muted);">Không có quyền nào</span>'}
+        </td>
+        <td style="vertical-align:top;">
+          ${deniedBadges.length > 0 ? deniedBadges.join('') : '<span style="font-size:0.8rem; color:var(--success);">Được toàn quyền sử dụng</span>'}
+        </td>
+        <td>
+          <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            ${togglesHtml}
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table></div></div>`;
+
   html += `<div class="hf-card" style="margin-top:20px;">
     <h3>Nhật ký Hoạt động Hệ thống (Audit Logs)</h3>
     <div style="margin-top:10px; max-height:180px; overflow-y:auto;">
@@ -2925,6 +3297,37 @@ function renderTeams() {
 
   html += `</div></div>`;
   container.innerHTML = html;
+}
+
+function toggleUserPermission(userId, permKey) {
+  const isPNAdmin = checkIsAdmin(hfState.currentUser);
+  if (!isPNAdmin) {
+    alert('Chỉ Admin mới có quyền điều chỉnh phân quyền tài khoản.');
+    return;
+  }
+
+  const targetUser = (hfState.users || []).find(u => u.id === userId);
+  if (!targetUser) return;
+
+  if (!targetUser.permissions) {
+    targetUser.permissions = {
+      canUseGroupChat: true,
+      canCreateGroupTask: true,
+      canDeleteTask: false,
+      canCreateProject: false,
+      canExportData: false,
+      canAccessSettings: false,
+      canManageUsers: false
+    };
+  }
+
+  targetUser.permissions[permKey] = !targetUser.permissions[permKey];
+  const actionName = targetUser.permissions[permKey] ? 'CẤP QUYỀN' : 'THU HỒI QUYỀN';
+  addAuditLog(`Admin đã ${actionName} [${permKey}] cho tài khoản ${targetUser.name}`);
+  saveHfState(true);
+  renderTeams();
+  renderAllViews();
+  showToast(`Đã ${targetUser.permissions[permKey] ? 'cấp quyền' : 'thu hồi quyền'} [${permKey}] cho ${targetUser.name}.`);
 }
 
 function submitJoinTeamWithCode() {
@@ -2943,37 +3346,85 @@ function joinTeamWithCode(codeStr) {
   if (!user) return;
 
   const code = (codeStr || '').trim().toUpperCase();
-  if (!code) return;
+  if (!code) {
+    alert('Vui lòng nhập Mã Đội Nhóm.');
+    return;
+  }
+
+  if (!hfState.teams) hfState.teams = [];
+  const existingTeam = hfState.teams.find(t => t.code && t.code.toUpperCase() === code);
+
+  if (!existingTeam) {
+    alert(`❌ Mã Đội Nhóm [${code}] không tồn tại trên hệ thống. Vui lòng kiểm tra lại mã chính xác hoặc tạo nhóm mới.`);
+    return;
+  }
 
   if (!user.joinedTeams) user.joinedTeams = [];
-  if (!user.joinedTeams.includes(code)) {
-    user.joinedTeams.push(code);
+  if (user.joinedTeams.includes(code)) {
+    user.teamCode = code;
+    saveHfState(true);
+    renderTeams();
+    renderAllViews();
+    alert(`Bạn đã tham gia Đội Nhóm [${existingTeam.name}] (${code}) này rồi! Hệ thống đã chuyển sang chế độ Đội Nhóm này.`);
+    return;
   }
+
+  user.joinedTeams.push(code);
   user.teamCode = code;
 
-  // Add user to team object members list if team exists
-  if (!hfState.teams) hfState.teams = [];
-  let existingTeam = hfState.teams.find(t => t.code && t.code.toUpperCase() === code);
-  if (!existingTeam) {
-    existingTeam = {
-      id: `team-${Date.now()}`,
-      name: `Đội Nhóm ${code}`,
-      code: code,
-      createdBy: user.username,
-      members: [user.username]
-    };
-    hfState.teams.push(existingTeam);
-  } else {
-    if (!existingTeam.members) existingTeam.members = [];
-    if (!existingTeam.members.includes(user.username)) {
-      existingTeam.members.push(user.username);
-    }
+  if (!existingTeam.members) existingTeam.members = [];
+  if (!existingTeam.members.includes(user.username)) {
+    existingTeam.members.push(user.username);
   }
 
+  addAuditLog(`Đã tham gia Đội Nhóm [${existingTeam.name}] (${code})`);
   saveHfState(true);
   renderTeams();
   renderAllViews();
-  showToast(`🎉 Đã tham gia Đội Nhóm [${code}] thành công! Công việc chung nhóm đã hiển thị.`);
+  showToast(`🎉 Đã tham gia Đội Nhóm [${existingTeam.name}] (${code}) thành công! Công việc chung nhóm đã hiển thị.`);
+}
+
+function openJoinTeamModal() {
+  const modal = document.getElementById('joinTeamModalOverlay');
+  if (!modal) return;
+  const input = document.getElementById('modalJoinTeamCodeInput');
+  if (input) input.value = '';
+
+  const container = document.getElementById('modalAvailableTeamsList');
+  if (container) {
+    const teams = hfState.teams || [];
+    if (teams.length === 0) {
+      container.innerHTML = `<span style="font-size:0.8rem; color:var(--text-muted);">Chưa có đội nhóm nào trên hệ thống.</span>`;
+    } else {
+      container.innerHTML = teams.map(t => `
+        <button class="hf-badge badge-progress" style="cursor:pointer; font-size:0.85rem; padding:6px 12px; border:none; margin:2px;" onclick="document.getElementById('modalJoinTeamCodeInput').value='${escapeHtml(t.code)}'" title="Nhấp để điền mã này">
+          🏢 ${escapeHtml(t.name)} (Mã: <strong>${escapeHtml(t.code)}</strong>)
+        </button>
+      `).join('');
+    }
+  }
+
+  modal.classList.add('active');
+  modal.style.display = 'flex';
+}
+
+function closeJoinTeamModal() {
+  const modal = document.getElementById('joinTeamModalOverlay');
+  if (modal) {
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+  }
+}
+
+function submitJoinTeamFromModal() {
+  const input = document.getElementById('modalJoinTeamCodeInput');
+  const code = input ? input.value.trim().toUpperCase() : '';
+  if (!code) {
+    alert('Vui lòng nhập Mã Đội Nhóm.');
+    return;
+  }
+  joinTeamWithCode(code);
+  closeJoinTeamModal();
 }
 
 function submitCreateNewTeamWithCode() {

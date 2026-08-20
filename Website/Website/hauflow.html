@@ -36,7 +36,7 @@
         <div class="nav-item" data-route="habits"><span>Theo dõi Thói quen</span></div>
         <div class="nav-item" data-route="notes"><span>Ghi chú Chuyên sâu</span></div>
         <div class="nav-item" data-route="files"><span>Quản lý Tệp tài liệu</span></div>
-        <div class="nav-item" data-route="teams"><span>Trung tâm Phân quyền</span></div>
+        <div class="nav-item" data-route="teams"><span>Đội Nhóm & Phân Quyền</span></div>
         <div class="nav-item" data-route="chat"><span>Trò chuyện Nhóm</span></div>
         <div class="nav-item" data-route="analytics"><span>Báo cáo Thống kê</span></div>
 
@@ -79,6 +79,7 @@
             <span id="currentUserNameDisplay">PN (Quản trị viên)</span>
           </div>
 
+          <button class="hf-btn hf-btn-secondary" onclick="openJoinTeamModal()" style="font-weight:600;" title="Nhập Mã Đội Nhóm để tham gia nhóm">🔑 Tham Gia Nhóm</button>
           <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">Tạo Công việc Mới</button>
           <button class="hf-btn hf-btn-secondary" onclick="logoutPnTaskUser()" title="Đăng xuất khỏi tài khoản">Đăng xuất</button>
           <button class="hf-btn-icon" onclick="toggleDarkMode()" title="Chuyển chế độ sáng tối">Giao diện</button>
@@ -152,15 +153,21 @@
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;" id="taskFilterButtonsContainer">
               <button class="hf-btn hf-btn-secondary task-tab-btn active" id="taskTab_all" onclick="filterTasksTab('all')">Tất cả</button>
               <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_today" onclick="filterTasksTab('today')">Hôm nay</button>
               <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_upcoming" onclick="filterTasksTab('upcoming')">Sắp tới</button>
               <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_overdue" onclick="filterTasksTab('overdue')">Quá hạn</button>
               <button class="hf-btn hf-btn-secondary task-tab-btn" id="taskTab_completed" onclick="filterTasksTab('completed')">Đã xong</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn admin-only-filter" id="taskTab_adminAssigned" onclick="filterTasksTab('adminAssigned')" style="display:none; border-color:var(--primary); color:var(--primary);">📌 Admin Giao Con</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn admin-only-filter" id="taskTab_personalAssigned" onclick="filterTasksTab('personalAssigned')" style="display:none; border-color:#e67e22; color:#e67e22;">👤 Task Cá Nhân Giao</button>
+              <button class="hf-btn hf-btn-secondary task-tab-btn admin-only-filter" id="taskTab_subCreated" onclick="filterTasksTab('subCreated')" style="display:none; border-color:#9b59b6; color:#9b59b6;">📝 Con Tự Tạo</button>
             </div>
 
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <select id="adminSubAccountFilterSelect" class="form-select admin-only-filter" style="display:none; width: 180px; font-size:0.8rem; padding: 6px;" onchange="filterTasksTab(this.value ? 'subAccount_' + this.value : 'all')">
+                <option value="">Lọc theo Tài khoản Con...</option>
+              </select>
               <input type="text" id="taskSearchInput" class="form-input" placeholder="Tìm công việc..." style="width: 180px;" onkeyup="renderTasks()">
               <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('tasksListContainer').style.display='block'; document.getElementById('kanbanBoardView').style.display='none';">Giao diện Bảng</button>
               <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('tasksListContainer').style.display='none'; document.getElementById('kanbanBoardView').style.display='grid';">Giao diện Cột</button>
@@ -278,7 +285,7 @@
 
         <!-- View 10: Admin PN & RBAC & APPROVAL -->
         <div id="view_teams" class="hf-view-panel" style="display: none;">
-          <h1 style="margin-bottom: 16px;">Trung tâm Phê duyệt & Phân quyền Quản trị viên</h1>
+          <h1 style="margin-bottom: 16px;">Quản lý Đội Nhóm & Phân Quyền</h1>
           <div id="teamsListContainer"></div>
         </div>
 
@@ -315,47 +322,99 @@
 
         <!-- View 13: Settings & Data Management -->
         <div id="view_settings" class="hf-view-panel" style="display: none;">
-          <h1 style="margin-bottom: 16px;">Cài đặt Hệ thống & Quản lý Dữ liệu</h1>
-          <div class="hf-card" style="max-width: 500px;">
-            <h3 style="margin-bottom:14px;">Cấu hình & Sao lưu Hệ thống</h3>
+          <h1 style="margin-bottom: 16px;">Cài đặt Hệ thống & Hồ sơ Người dùng</h1>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;" class="dashboard-two-col">
             
-            <div class="form-group">
-              <label class="form-label">Tự đổi Chế độ Giao diện Dark / Light</label>
-              <button class="hf-btn hf-btn-secondary" onclick="toggleDarkMode()">Bật / Tắt Chế độ Tối (Dark Mode)</button>
-            </div>
-
-            <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
-              <label class="form-label">Xuất dữ liệu Sao lưu hệ thống (Tệp JSON)</label>
-              <button class="hf-btn hf-btn-primary" onclick="exportSystemDataJSON()">Xuất Dữ liệu Hệ thống</button>
-            </div>
-
-            <div class="form-group" style="margin-top:14px;">
-              <label class="form-label">Phục hồi dữ liệu từ tệp sao lưu (Import JSON)</label>
-              <input type="file" id="importJsonFileInput" accept=".json" style="display:none;" onchange="importSystemDataJSON(event)">
-              <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('importJsonFileInput').click()">Phục hồi Dữ liệu</button>
-            </div>
-
-            <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
-              <label class="form-label" style="color:var(--danger);">Khôi phục Dữ liệu Mặc định Ban đầu</label>
-              <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:var(--danger); width:100%;" onclick="resetWorkspaceData()">Khôi phục Mặc định</button>
-            </div>
-
-          </div>
-
-          <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
-          <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
-            <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Firebase Realtime Cloud Sync)</h3>
-            <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
-              Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase.
-            </p>
-            
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
-              <div>
-                <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
-                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
+            <!-- COLUMN 1: USER PERSONAL PROFILE -->
+            <div class="hf-card">
+              <h3 style="margin-bottom: 14px;">Hồ sơ Cá nhân người dùng</h3>
+              
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+                <div class="avatar-badge" id="settingsUserAvatarDisplay" style="width:44px; height:44px; font-size:1.2rem;">PN</div>
+                <div>
+                  <div style="font-weight:700; font-size:1rem;" id="settingsUserNameDisplay">PN</div>
+                  <div style="font-size:0.8rem; color:var(--text-secondary);" id="settingsUserRoleDisplay">Quản trị viên (Giám đốc)</div>
+                </div>
               </div>
-              <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Đám mây Ngay</button>
+
+              <div class="form-group">
+                <label class="form-label">Họ và Tên cá nhân (*)</label>
+                <input type="text" id="settingsFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tên đăng nhập (*)</label>
+                <input type="text" id="settingsUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
+                <input type="text" id="settingsPasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Email liên hệ</label>
+                <input type="email" id="settingsEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
+              </div>
+
+              <button class="hf-btn hf-btn-primary" onclick="submitSaveSettingsProfile()" style="width: 100%; margin-top: 10px;">Lưu Hồ sơ Cá nhân</button>
             </div>
+
+            <!-- COLUMN 2: SYSTEM CONFIG & BACKUP -->
+            <div class="hf-card">
+              <h3 style="margin-bottom: 14px;">Cấu hình & Sao lưu Hệ thống</h3>
+              
+              <div class="form-group">
+                <label class="form-label">Chế độ Giao diện Sáng / Tối</label>
+                <button class="hf-btn hf-btn-secondary" onclick="toggleDarkMode()" style="width:100%;">Bật / Tắt Chế độ Tối (Dark Mode)</button>
+              </div>
+
+              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+                <label class="form-label">Xuất dữ liệu Sao lưu hệ thống (Tệp JSON)</label>
+                <button class="hf-btn hf-btn-primary" onclick="exportSystemDataJSON()" style="width:100%;">Xuất Dữ liệu Hệ thống</button>
+              </div>
+
+              <div class="form-group" style="margin-top:14px;">
+                <label class="form-label">Phục hồi dữ liệu từ tệp sao lưu (Import JSON)</label>
+                <input type="file" id="importJsonFileInput" accept=".json" style="display:none;" onchange="importSystemDataJSON(event)">
+                <button class="hf-btn hf-btn-secondary" onclick="document.getElementById('importJsonFileInput').click()" style="width:100%;">Phục hồi Dữ liệu</button>
+              </div>
+
+              <div class="form-group" style="margin-top:20px; border-top:1px solid var(--border); padding-top:14px;">
+                <label class="form-label" style="color:var(--danger);">Khôi phục Dữ liệu Mặc định Ban đầu</label>
+                <button class="hf-btn hf-btn-secondary" style="color:var(--danger); border-color:var(--danger); width:100%;" onclick="resetWorkspaceData()">Khôi phục Mặc định</button>
+              </div>
+
+            </div>
+
+            <!-- COLUMN 3: REALTIME CLOUD SYNC CARD -->
+            <div class="hf-card" style="grid-column: 1 / -1; margin-top: 10px;">
+              <h3 style="margin-bottom: 12px;">Đồng bộ Đám mây Trực tuyến (Đồng bộ Đa thiết bị cho GitHub Pages)</h3>
+              <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:14px;">
+                Dữ liệu tài khoản, nhiệm vụ, thói quen và ghi chú được tự động đồng bộ thời gian thực 24/7 giữa mọi thiết bị (Máy tính, Điện thoại, Laptop) qua hệ thống đám mây Google Firebase Realtime Database.
+              </p>
+              
+              <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:14px; background:var(--bg-secondary); border-radius:8px; border:1px solid var(--border);">
+                <div>
+                  <div style="font-weight:700; font-size:0.9rem;">Trạng thái Đồng bộ: <span id="settingsCloudSyncStatusText" style="color:var(--primary);">🟢 Đã kết nối Đám mây</span></div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">Tự động lắng nghe & cập nhật thay đổi thời gian thực giữa các thiết bị.</div>
+                </div>
+                <button class="hf-btn hf-btn-primary" onclick="forceManualCloudSync()">Đồng bộ Ngay</button>
+              </div>
+
+              <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+                <label class="form-label" style="font-weight:700;">Cấu hình Firebase Realtime Database (Để đồng bộ trên GitHub Pages):</label>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                  <input type="text" id="customFirebaseUrlInput" class="form-input" placeholder="https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app" style="flex:1;">
+                  <button class="hf-btn hf-btn-secondary" onclick="saveCustomFirebaseUrl()">Lưu URL Cloud</button>
+                </div>
+                <p style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+                  💡 <strong>Hướng dẫn Đăng GitHub Pages:</strong> Khi đăng ứng dụng lên GitHub Pages, bạn tạo 1 Realtime Database miễn phí từ Firebase Console và dán URL vào đây để tất cả các thiết bị tự động đồng bộ trực tuyến qua mạng Internet.
+                </p>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -505,8 +564,14 @@
 
   <!-- USER SWITCHER DROPDOWN MODAL -->
   <div class="hf-modal-overlay" id="userProfileDropdownModal" onclick="this.classList.remove('active')">
-    <div class="hf-modal-box" style="max-width: 320px; padding: 16px;" onclick="event.stopPropagation()">
-      <h3 style="margin-bottom: 12px;">Chuyển đổi Tài khoản Nhanh</h3>
+    <div class="hf-modal-box" style="max-width: 340px; padding: 20px;" onclick="event.stopPropagation()">
+      <div style="text-align:center; padding-bottom: 12px; margin-bottom: 12px; border-bottom:1px solid var(--border);">
+        <div class="avatar-badge" id="dropdownCurrentAvatar" style="width:42px; height:42px; font-size:1.2rem; margin: 0 auto 8px auto;">PN</div>
+        <div style="font-weight:700; font-size:1rem;" id="dropdownCurrentName">PN</div>
+        <div style="font-size:0.8rem; color:var(--text-secondary);" id="dropdownCurrentRole">Quản trị viên (Giám đốc)</div>
+        <button class="hf-btn hf-btn-primary" onclick="document.getElementById('userProfileDropdownModal').classList.remove('active'); openMyProfileModal();" style="margin-top:10px; width:100%; font-size:0.8rem; padding:6px 12px;">Hồ sơ Cá nhân & Đổi Mật khẩu</button>
+      </div>
+      <h3 style="margin-bottom: 10px; font-size:0.95rem;">Tài khoản & Bảo mật</h3>
       <div style="display: flex; flex-direction: column; gap: 8px;" id="fastSwitchUserListContainer"></div>
     </div>
   </div>
@@ -683,11 +748,91 @@
     </div>
   </div>
 
+  <!-- VIEW SUB-ACCOUNT DETAILS MODAL (ADMIN ONLY) -->
+  <div class="hf-modal-overlay" id="viewSubAccountModalOverlay" onclick="closeSubAccountDetailsModal()">
+    <div class="hf-modal-box" style="max-width: 600px; padding: 20px;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <h3 id="viewSubAccountModalTitle" style="font-size: 1.1rem; color: var(--primary);">Chi tiết Tài khoản Con</h3>
+        <button onclick="closeSubAccountDetailsModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary);">x</button>
+      </div>
+      <div id="viewSubAccountModalBody"></div>
+    </div>
+  </div>
+
+  <!-- MY PERSONAL PROFILE MODAL -->
+  <div class="hf-modal-overlay" id="myProfileModalOverlay">
+    <div class="hf-modal-box" style="max-width:480px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3>Hồ sơ Cá nhân & Cài đặt Tài khoản</h3>
+        <button onclick="closeMyProfileModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color:var(--text-secondary);">x</button>
+      </div>
+
+      <div style="text-align:center; margin-bottom: 16px;">
+        <div class="avatar-badge" id="myProfileAvatarDisplay" style="width:48px; height:48px; font-size:1.3rem; margin: 0 auto 6px auto;">PN</div>
+        <div style="font-weight:700; font-size:0.95rem;" id="myProfileRoleDisplay">Quản trị viên (Giám đốc)</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Họ và Tên cá nhân (*)</label>
+        <input type="text" id="myProfileFullNameInput" class="form-input" placeholder="Ví dụ: Nguyễn Văn A">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tên đăng nhập (Username) (*)</label>
+        <input type="text" id="myProfileUsernameInput" class="form-input" placeholder="Ví dụ: nguyenvana">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mật khẩu cá nhân / Mã QTV (*)</label>
+        <input type="text" id="myProfilePasswordInput" class="form-input" placeholder="Nhập mật khẩu mới...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Email liên hệ</label>
+        <input type="email" id="myProfileEmailInput" class="form-input" placeholder="Ví dụ: user@gmail.com">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeMyProfileModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitSaveMyProfile()">Cập nhật Hồ sơ</button>
+      </div>
+    </div>
+  </div>
+
   <!-- COMMAND PALETTE -->
   <div class="command-palette-overlay" id="commandPaletteOverlay" onclick="closeCommandPalette()">
     <div class="command-palette-box" onclick="event.stopPropagation()">
       <div class="command-input-wrapper">
         <input type="text" class="form-input" placeholder="Tìm kiếm công việc hoặc gõ lệnh..." onkeyup="if(event.key==='Enter') closeCommandPalette()">
+      </div>
+    </div>
+  </div>
+
+  <!-- JOIN TEAM MODAL -->
+  <div class="hf-modal-overlay" id="joinTeamModalOverlay">
+    <div class="hf-modal-box" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h3 style="color:var(--primary);">🔑 Tham Gia Đội Nhóm Bằng Mã</h3>
+        <button onclick="closeJoinTeamModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-secondary);">✕</button>
+      </div>
+
+      <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+        Nhập Mã Tạo Đội Nhóm do quản lý hoặc đồng nghiệp cung cấp để tham gia làm việc chung và trò chuyện nhóm.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Mã Đội Nhóm (*)</label>
+        <input type="text" id="modalJoinTeamCodeInput" class="form-input" placeholder="Ví dụ: PNTASK-TEAM, TEAM-MKT..." style="text-transform:uppercase; font-weight:700; font-size:1.05rem;" onkeydown="if(event.key==='Enter') submitJoinTeamFromModal()">
+      </div>
+
+      <div style="margin-top:16px; margin-bottom:20px; background:var(--bg-secondary); padding:12px; border-radius:8px; border:1px solid var(--border);">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">💡 Các Mã Đội Nhóm đang có sẵn trên hệ thống:</div>
+        <div id="modalAvailableTeamsList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeJoinTeamModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitJoinTeamFromModal()">Xác Nhận Tham Gia</button>
       </div>
     </div>
   </div>

@@ -36,7 +36,7 @@
         <div class="nav-item" data-route="habits"><span>Theo dõi Thói quen</span></div>
         <div class="nav-item" data-route="notes"><span>Ghi chú Chuyên sâu</span></div>
         <div class="nav-item" data-route="files"><span>Quản lý Tệp tài liệu</span></div>
-        <div class="nav-item" data-route="teams"><span>Trung tâm Phân quyền</span></div>
+        <div class="nav-item" data-route="teams"><span>Đội Nhóm & Phân Quyền</span></div>
         <div class="nav-item" data-route="chat"><span>Trò chuyện Nhóm</span></div>
         <div class="nav-item" data-route="analytics"><span>Báo cáo Thống kê</span></div>
 
@@ -79,6 +79,7 @@
             <span id="currentUserNameDisplay">PN (Quản trị viên)</span>
           </div>
 
+          <button class="hf-btn hf-btn-secondary" onclick="openJoinTeamModal()" style="font-weight:600;" title="Nhập Mã Đội Nhóm để tham gia nhóm">🔑 Tham Gia Nhóm</button>
           <button class="hf-btn hf-btn-primary" onclick="openQuickCreateModal()">Tạo Công việc Mới</button>
           <button class="hf-btn hf-btn-secondary" onclick="logoutPnTaskUser()" title="Đăng xuất khỏi tài khoản">Đăng xuất</button>
           <button class="hf-btn-icon" onclick="toggleDarkMode()" title="Chuyển chế độ sáng tối">Giao diện</button>
@@ -284,7 +285,7 @@
 
         <!-- View 10: Admin PN & RBAC & APPROVAL -->
         <div id="view_teams" class="hf-view-panel" style="display: none;">
-          <h1 style="margin-bottom: 16px;">Trung tâm Phê duyệt & Phân quyền Quản trị viên</h1>
+          <h1 style="margin-bottom: 16px;">Quản lý Đội Nhóm & Phân Quyền</h1>
           <div id="teamsListContainer"></div>
         </div>
 
@@ -803,6 +804,35 @@
     <div class="command-palette-box" onclick="event.stopPropagation()">
       <div class="command-input-wrapper">
         <input type="text" class="form-input" placeholder="Tìm kiếm công việc hoặc gõ lệnh..." onkeyup="if(event.key==='Enter') closeCommandPalette()">
+      </div>
+    </div>
+  </div>
+
+  <!-- JOIN TEAM MODAL -->
+  <div class="hf-modal-overlay" id="joinTeamModalOverlay">
+    <div class="hf-modal-box" style="max-width:520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h3 style="color:var(--primary);">🔑 Tham Gia Đội Nhóm Bằng Mã</h3>
+        <button onclick="closeJoinTeamModal()" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-secondary);">✕</button>
+      </div>
+
+      <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+        Nhập Mã Tạo Đội Nhóm do quản lý hoặc đồng nghiệp cung cấp để tham gia làm việc chung và trò chuyện nhóm.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Mã Đội Nhóm (*)</label>
+        <input type="text" id="modalJoinTeamCodeInput" class="form-input" placeholder="Ví dụ: PNTASK-TEAM, TEAM-MKT..." style="text-transform:uppercase; font-weight:700; font-size:1.05rem;" onkeydown="if(event.key==='Enter') submitJoinTeamFromModal()">
+      </div>
+
+      <div style="margin-top:16px; margin-bottom:20px; background:var(--bg-secondary); padding:12px; border-radius:8px; border:1px solid var(--border);">
+        <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">💡 Các Mã Đội Nhóm đang có sẵn trên hệ thống:</div>
+        <div id="modalAvailableTeamsList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="hf-btn hf-btn-secondary" onclick="closeJoinTeamModal()">Hủy</button>
+        <button class="hf-btn hf-btn-primary" onclick="submitJoinTeamFromModal()">Xác Nhận Tham Gia</button>
       </div>
     </div>
   </div>
